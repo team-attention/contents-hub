@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Contents Hub",
+  "version": "0.0.1",
+  "description": "Subscribe to any website and get notified when new content is available",
+  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"]
+    }
+  ]
+}
