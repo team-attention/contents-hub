@@ -5,10 +5,15 @@
     "moduleResolution": "Node",
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "incremental": true,
-    "noEmit": false
+    "noEmit": false,
+    "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

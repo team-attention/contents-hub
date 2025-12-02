@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function Popup() {
   const [currentUrl, setCurrentUrl] = useState<string>("");
@@ -22,9 +22,7 @@ function Popup() {
       <h1 style={{ fontSize: "18px", marginBottom: "16px" }}>Contents Hub</h1>
 
       <div style={{ marginBottom: "16px" }}>
-        <p style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>
-          Current page:
-        </p>
+        <p style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>Current page:</p>
         <p
           style={{
             fontSize: "14px",
@@ -39,6 +37,7 @@ function Popup() {
       </div>
 
       <button
+        type="button"
         onClick={handleSubscribe}
         style={{
           width: "100%",

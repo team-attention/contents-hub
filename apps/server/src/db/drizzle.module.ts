@@ -1,8 +1,8 @@
 import { Module } from "@nestjs/common";
-import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { appEnv, env } from "../env";
 import * as schema from "./schema";
-import { env, appEnv } from "../env";
 
 export const PROVIDER_DB_CONNECTION = "DB_CONNECTION";
 

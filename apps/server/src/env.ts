@@ -2,9 +2,9 @@
 import { config } from "dotenv";
 import { z } from "zod";
 
-if (process.env["APP_ENV"] === "test") {
+if (process.env.APP_ENV === "test") {
   config({ path: [".env.test"], override: true });
-} else if (process.env["APP_ENV"] === "development") {
+} else if (process.env.APP_ENV === "development") {
   config({ path: [".env"], override: true });
 }
 
