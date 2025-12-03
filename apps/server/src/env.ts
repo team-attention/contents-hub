@@ -20,6 +20,10 @@ export const env = z
     // Supabase
     SUPABASE_URL: z.string().url(),
     SUPABASE_ANON_KEY: z.string(),
+    SUPABASE_JWT_SECRET: z.string(),
+
+    // Auth (optional - for dev/test mock)
+    MOCK_USER_ID: z.string().optional(),
 
     // Anthropic (Claude)
     ANTHROPIC_API_KEY: z.string(),

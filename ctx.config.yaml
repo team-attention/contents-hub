@@ -14,9 +14,10 @@ global:
   patterns: "**/*.md"
   ignore:
     - templates/**
+    - issues/**
     - README.md
     - "*-context-registry.yml"
-    - issues/**
+    - "references/**"
 work:
   directory: .worktrees
 frontmatter:

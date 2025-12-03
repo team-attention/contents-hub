@@ -1,20 +1,27 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"]
-    },
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": true,
+    "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
     "incremental": true,
-    "noEmit": false,
-    "noPropertyAccessFromIndexSignature": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "resolveJsonModule": true,
+    "typeRoots": ["node_modules/@types", "src/types"],
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
 }

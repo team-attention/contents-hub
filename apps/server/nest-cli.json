@@ -4,6 +4,25 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.json"
+    "assets": [
+      {
+        "include": "**/*.html",
+        "outDir": "dist/public",
+        "watchAssets": true
+      }
+    ],
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "classValidatorShim": true,
+          "introspectComments": true,
+          "dtoFileNameSuffix": [".dto.ts", ".entity.ts", ".interface.ts"],
+          "controllerFileNameSuffix": [".controller.ts"]
+        }
+      }
+    ],
+    "tsConfigPath": "tsconfig.build.json",
+    "watchAssets": true
   }
 }
