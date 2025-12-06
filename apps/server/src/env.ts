@@ -28,6 +28,10 @@ export const env = z
 
     // Anthropic (Claude)
     ANTHROPIC_API_KEY: z.string(),
+
+    // Slack (optional - for Slack integration)
+    SLACK_BOT_TOKEN: z.string().optional(),
+    SLACK_SIGNING_SECRET: z.string().optional(),
   })
   .parse(process.env);
 
