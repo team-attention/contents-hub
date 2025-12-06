@@ -1,18 +1,19 @@
 meta:
   version: 1.0.0
-  last_synced: 2025-12-02T05:56:11.230Z
+  last_synced: 2025-12-03T12:25:14.895Z
 contexts:
   /project-overview.md:
     type: document
     source: ctx/project-overview.md
     folder: null
-    checksum: ef4679d8f183c306d0b855cf66820521
-    last_modified: 2025-12-02T05:56:02.939Z
+    checksum: 22f7afa501b5fa7c44179a80ef39994d
+    last_modified: 2025-12-02T05:57:25.875Z
     preview:
-      what: |
-        Contents Hub 프로젝트의 전체 구조, 기술 스택, 주요 설정 패턴을 설명합니다.
+      what: >
+        Describes the overall structure, tech stack, and key configuration
+        patterns of the Contents Hub project.
       when:
-        - 프로젝트 구조나 기술 스택을 파악할 때
-        - 새로운 앱이나 패키지를 추가할 때
-        - 환경 설정 방법을 확인할 때
+        - Understanding project structure or tech stack
+        - Adding new apps or packages
+        - Checking environment configuration
 folders: {}
