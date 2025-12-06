@@ -2,14 +2,11 @@ import "./env-setup";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
-import * as postgresModule from "postgres";
+import postgres from "postgres";
 import * as schema from "../src/db/schema";
 import { env } from "../src/env";
 import { setGlobalTestPostgresContainer } from "./utils/global";
 import { applySchema } from "./utils/helpers";
-
-const postgres =
-  "default" in postgresModule ? (postgresModule.default as typeof postgresModule) : postgresModule;
 
 export default async function globalSetup() {
   const databaseUrl = env.DATABASE_URL;

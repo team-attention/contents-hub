@@ -1,14 +1,9 @@
 import type { INestApplication } from "@nestjs/common";
-import * as supertestModule from "supertest";
+import request from "supertest";
 import { AppModule } from "../../src/app.module";
 import { env } from "../../src/env";
 import type { TestDb } from "../utils/global";
 import { cleanAndSetupTestData, createTestApp } from "../utils/helpers";
-
-const request =
-  "default" in supertestModule
-    ? (supertestModule.default as typeof supertestModule)
-    : supertestModule;
 
 describe("Auth (e2e)", () => {
   let app: INestApplication;

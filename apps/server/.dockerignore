@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output (will be rebuilt)
+dist
+
+# Development files
+.env
+.env.local
+.env.test
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Test files
+coverage
+test
+*.spec.ts
+*.test.ts
+jest.config.js
+jest-e2e.config.js
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+*.md
+*.log
+.DS_Store

@@ -1,11 +1,12 @@
 // TODO: Add lint rule to prevent using process.env directly
+// TODO: Consider using dotenv-flow for better env file management
 import { config } from "dotenv";
 import { z } from "zod";
 
 if (process.env.APP_ENV === "test") {
-  config({ path: [".env.test"], override: true });
+  config({ path: [".env.test", "../../.env.test"], override: true });
 } else if (process.env.APP_ENV === "development") {
-  config({ path: [".env"], override: true });
+  config({ path: [".env", "../../.env"], override: true });
 }
 
 export const env = z

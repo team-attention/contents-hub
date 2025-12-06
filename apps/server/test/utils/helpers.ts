@@ -2,14 +2,11 @@ import type { INestApplication, Type } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
-import * as postgresModule from "postgres";
+import postgres from "postgres";
 import { PROVIDER_DB_CONNECTION } from "../../src/db/drizzle.module";
 import * as schema from "../../src/db/schema";
 import { env } from "../../src/env";
 import type { TestDb } from "./global";
-
-const postgres =
-  "default" in postgresModule ? (postgresModule.default as typeof postgresModule) : postgresModule;
 
 const CREATE_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS subscriptions (

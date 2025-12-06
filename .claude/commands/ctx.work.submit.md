@@ -18,12 +18,11 @@ Create todos to track progress:
 
 1. Check for uncommitted changes
 2. Check for existing PR
-3. Stage all changes
-4. Create commit
-5. Run quality checks (lint/format)
-6. Run tests
-7. Push to remote
-8. Create pull request (if needed)
+3. Create commit (using `/ctx.work.commit`)
+4. Run quality checks (lint/format)
+5. Run tests
+6. Push to remote
+7. Create pull request (if needed)
 
 ---
 
@@ -63,134 +62,28 @@ This determines whether to create a new PR or just push to existing one.
 
 ---
 
-## Step 3: Stage All Changes
+## Step 3: Create Commit
 
-```bash
-git add .
-```
-
-✓ Staged all changes
-
-Mark todo as completed.
-
----
-
-## Step 4: Generate Commit Message
+Use the `/ctx.work.commit` command to stage changes and create a conventional commit.
 
 **If user provided commit message in `$ARGUMENTS`:**
-- Use provided message
+- Pass the message to `/ctx.work.commit`
 
 **If no message provided:**
-- Analyze staged changes using:
-  ```bash
-  git diff --cached --stat
-  git diff --cached
-  ```
-- Generate conventional commit message using the commit types defined in:
+- `/ctx.work.commit` will automatically analyze changes and generate an appropriate message
 
-# Commit Types & Emoji
+The `/ctx.work.commit` command handles:
+- Staging files (if not already staged)
+- Analyzing changes for appropriate commit type
+- Generating conventional commit message with emoji
+- Including issue link from `.ctx.current` (if exists)
+- Running pre-commit hooks
 
-Select appropriate type based on changes:
-
-- ✨ **feat**: New feature
-- 🐛 **fix**: Bug fix
-- 📝 **docs**: Documentation
-- 💄 **style**: Formatting/style
-- ♻️ **refactor**: Code refactoring
-- ⚡️ **perf**: Performance improvements
-- ✅ **test**: Tests
-- 🔧 **chore**: Tooling, configuration
-- 🚀 **ci**: CI/CD improvements
-- 🗑️ **revert**: Reverting changes
-- 🚨 **fix**: Fix compiler/linter warnings
-- 🔒️ **fix**: Fix security issues
-- 🚚 **refactor**: Move or rename resources
-- 🏗️ **refactor**: Architectural changes
-- 🔀 **chore**: Merge branches
-- 📦️ **chore**: Add/update packages
-- ➕ **chore**: Add dependency
-- ➖ **chore**: Remove dependency
-- 🧑‍💻 **chore**: Improve developer experience
-- 👔 **feat**: Business logic
-- 📱 **feat**: Responsive design
-- 🚸 **feat**: Improve UX/usability
-- 🩹 **fix**: Simple non-critical fix
-- 🥅 **fix**: Catch errors
-- 👽️ **fix**: External API changes
-- 🔥 **fix**: Remove code/files
-- 🎨 **style**: Improve structure/format
-- 🚑️ **fix**: Critical hotfix
-- 🎉 **chore**: Begin project
-- 🔖 **chore**: Release/version tags
-- 🚧 **wip**: Work in progress
-- 💚 **fix**: Fix CI build
-- 📌 **chore**: Pin dependencies
-- 👷 **ci**: CI build system
-- 📈 **feat**: Analytics/tracking
-- ✏️ **fix**: Fix typos
-- ⏪️ **revert**: Revert changes
-- 📄 **chore**: License
-- 💥 **feat**: Breaking changes
-- 🍱 **assets**: Assets
-- ♿️ **feat**: Accessibility
-- 💡 **docs**: Comments in code
-- 🗃️ **db**: Database changes
-- 🔊 **feat**: Add/update logs
-- 🔇 **fix**: Remove logs
-- 🤡 **test**: Mock things
-- 🥚 **feat**: Easter egg
-- 🙈 **chore**: .gitignore
-- 📸 **test**: Snapshots
-- ⚗️ **experiment**: Experiments
-- 🚩 **feat**: Feature flags
-- 💫 **ui**: Animations/transitions
-- ⚰️ **refactor**: Remove dead code
-- 🦺 **feat**: Validation
-- ✈️ **feat**: Offline support
-- 🧵 **feat**: Multithreading/concurrency
-- 🔍️ **feat**: SEO
-- 🏷️ **feat**: Types
-- 💬 **feat**: Text/literals
-- 🌐 **feat**: i18n/l10n
-
-
-Use format: `{emoji} {type}: {short description}`
-
-**Check for issue link:**
-- If `.ctx.current` exists:
-  - Read `.ctx.current` to get issue path/URL
-  - If offline issue (file path): Read issue file and extract `source` from frontmatter
-  - If online issue (URL): Use URL directly
-  - Append to commit body: `\n\nIssue: {url}`
+Mark todo as completed after commit is created.
 
 ---
 
-## Step 5: Create Commit
-
-```bash
-git commit -m "$(cat <<'EOF'
-{commit-message}
-
-Issue: {issue-url-if-available}
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
-```
-
-**Handle results:**
-- **Success**: ✓ Created commit
-- **Pre-commit hooks modified files**:
-  - Amend commit: `git commit --amend --no-edit`
-  - ✓ Amended commit with hook changes
-
-Mark todo as completed.
-
----
-
-## Step 6: Run Quality Checks (Lint/Format)
+## Step 4: Run Quality Checks (Lint/Format)
 
 **Detect available commands:**
 
@@ -235,7 +128,7 @@ Mark todo as completed.
 
 ---
 
-## Step 7: Run Tests
+## Step 5: Run Tests
 
 **Detect available test commands:**
 
@@ -268,7 +161,7 @@ Mark todo as completed.
 
 ---
 
-## Step 8: Push Branch to Remote
+## Step 6: Push Branch to Remote
 
 Get current branch name:
 ```bash
@@ -294,7 +187,7 @@ Mark todo as completed.
 
 ---
 
-## Step 9: Read Issue Context for PR
+## Step 7: Read Issue Context for PR
 
 **Check if `.ctx.current` exists:**
 
@@ -324,7 +217,7 @@ cat .ctx.current 2>/dev/null
 
 ---
 
-## Step 10: Generate PR Description
+## Step 8: Generate PR Description
 
 **Structure:**
 
@@ -361,7 +254,7 @@ Closes {issue-reference}
 
 ---
 
-## Step 11: Create or Skip Pull Request
+## Step 9: Create or Skip Pull Request
 
 **If `existing_pr` is true (from Step 2.5):**
 - Skip PR creation
@@ -411,7 +304,7 @@ Mark todo as completed.
 
 ---
 
-## Step 12: Show Summary
+## Step 10: Show Summary
 
 Display:
 

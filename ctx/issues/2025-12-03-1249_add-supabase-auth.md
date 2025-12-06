@@ -3,9 +3,10 @@ title: Add Supabase authentication to server
 source: local
 provider: local
 created_at: 2025-12-03T03:49:37Z
-updated_at: 2025-12-03T04:31:43Z
-status: in_progress
-git_branch: ""
+updated_at: 2025-12-03T12:38:36Z
+status: completed
+completed_at: 2025-12-03T12:38:36Z
+git_branch: main
 ---
 
 # Spec
