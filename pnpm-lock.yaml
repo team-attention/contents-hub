@@ -145,6 +145,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
+      dotenv-flow:
+        specifier: ^4.1.0
+        version: 4.1.0
       drizzle-orm:
         specifier: ^0.38.2
         version: 0.38.4(@types/react@18.3.27)(postgres@3.4.7)(react@18.3.1)
@@ -179,6 +182,9 @@ importers:
       '@testcontainers/postgresql':
         specifier: ^11.9.0
         version: 11.9.0
+      '@types/dotenv-flow':
+        specifier: ^3.3.3
+        version: 3.3.3
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.5
@@ -1769,6 +1775,9 @@ packages:
   '@types/dockerode@3.3.47':
     resolution: {integrity: sha512-ShM1mz7rCjdssXt7Xz0u1/R2BJC7piWa3SJpUBiVjCf2A3XNn4cP6pUVaD8bLanpPVVn4IKzJuw3dOvkJ8IbYw==}
 
+  '@types/dotenv-flow@3.3.3':
+    resolution: {integrity: sha512-aJjBsKw4bfGjvaRwrxBtEOfYZxCAq+LiFTpZ4DGTEK2b9eLVt/IAClapSxMfgV4Mi/2bIBKKjoTCO0lOh4ACLg==}
+
   '@types/eslint-scope@3.7.7':
     resolution: {integrity: sha512-MzMFlSLBqNF2gcHWO0G1vP/YQyfvrxZ0bF+u7mzUdZ1/xK4A4sru+nraZz5i3iEIk1l1uyicaDVTB4QbbEkAYg==}
 
@@ -2680,6 +2689,10 @@ packages:
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
+
+  dotenv-flow@4.1.0:
+    resolution: {integrity: sha512-0cwP9jpQBQfyHwvE0cRhraZMkdV45TQedA8AAUZMsFzvmLcQyc1HPv+oX0OOYwLFjIlvgVepQ+WuQHbqDaHJZg==}
+    engines: {node: '>= 12.0.0'}
 
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
@@ -6436,6 +6449,8 @@ snapshots:
       '@types/node': 22.19.1
       '@types/ssh2': 1.15.5
 
+  '@types/dotenv-flow@3.3.3': {}
+
   '@types/eslint-scope@3.7.7':
     dependencies:
       '@types/eslint': 9.6.1
@@ -7478,6 +7493,10 @@ snapshots:
       dom-serializer: 2.0.0
       domelementtype: 2.3.0
       domhandler: 5.0.3
+
+  dotenv-flow@4.1.0:
+    dependencies:
+      dotenv: 16.6.1
 
   dotenv@16.6.1: {}
 

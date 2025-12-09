@@ -3,7 +3,7 @@
   "name": "Contents Hub",
   "version": "0.0.1",
   "description": "Subscribe to any website and get notified when new content is available",
-  "permissions": ["activeTab", "storage", "identity"],
+  "permissions": ["activeTab", "storage", "identity", "tabs", "webNavigation"],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {

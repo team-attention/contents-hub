@@ -1,6 +1,6 @@
 meta:
   version: 1.0.0
-  last_synced: 2025-12-03T12:25:14.895Z
+  last_synced: 2025-12-08T11:04:52.358Z
 contexts:
   /project-overview.md:
     type: document
@@ -16,4 +16,27 @@ contexts:
         - Understanding project structure or tech stack
         - Adding new apps or packages
         - Checking environment configuration
-folders: {}
+  /deployment/fly-io.md:
+    type: document
+    source: ctx/deployment/fly-io.md
+    folder: deployment
+    checksum: 4337b57ff4727af8d88f2d362460e598
+    last_modified: 2025-12-06T06:32:41.581Z
+    preview:
+      what: >
+        Fly.io deployment configuration and patterns for the contents-hub
+        server.
+
+        Covers Docker setup, fly.toml configuration, and secrets management.
+      when:
+        - Deploying the server to Fly.io
+        - Updating deployment configuration
+        - Debugging production issues
+        - Setting up CI/CD for deployment
+      not_when:
+        - Local development setup
+        - Extension deployment (not applicable)
+folders:
+  deployment:
+    checksum: 9a08c0c5d6b60097411cb9f780c78db4
+    last_modified: 2025-12-06T06:32:41.581Z

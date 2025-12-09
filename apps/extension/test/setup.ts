@@ -30,6 +30,18 @@ globalThis.chrome = {
     query: vi.fn().mockImplementation((_query, callback) => {
       callback([{ url: "https://example.com" }]);
     }),
+    create: vi.fn().mockResolvedValue({ id: 1 }),
+    remove: vi.fn().mockResolvedValue(undefined),
+    onUpdated: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    },
+  },
+  webNavigation: {
+    onBeforeNavigate: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    },
   },
 } as unknown as typeof chrome;
 

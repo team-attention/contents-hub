@@ -20,6 +20,9 @@ global:
     - "references/**"
 work:
   directory: .worktrees
+  issue_store:
+    type: github-issue
+    url: https://github.com/team-attention/contents-hub/issues
 frontmatter:
   local: optional
   global: optional

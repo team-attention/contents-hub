@@ -2,9 +2,37 @@
  * Background service worker for Contents Hub extension
  */
 
+import { handleOAuthCallback } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 
 console.log("Contents Hub background service worker started");
+
+// Listen for OAuth callback redirect
+const redirectUrl = chrome.identity.getRedirectURL();
+console.log("Listening for redirect URL:", redirectUrl);
+
+chrome.webNavigation.onBeforeNavigate.addListener(
+  async (details) => {
+    console.log("Navigation detected:", details.url);
+
+    if (details.url?.startsWith(redirectUrl) && details.url.includes("access_token")) {
+      console.log("OAuth callback detected:", details.url);
+
+      try {
+        await handleOAuthCallback(details.url);
+        console.log("OAuth callback handled successfully");
+
+        // Close the OAuth tab
+        await chrome.tabs.remove(details.tabId);
+      } catch (error) {
+        console.error("OAuth callback error:", error);
+      }
+    }
+  },
+  {
+    url: [{ urlPrefix: redirectUrl }],
+  }
+);
 
 // Initialize auth state listener
 supabase.auth.onAuthStateChange((event, session) => {

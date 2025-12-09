@@ -1,13 +1,16 @@
+import { resolve } from "node:path";
 // TODO: Add lint rule to prevent using process.env directly
-// TODO: Consider using dotenv-flow for better env file management
-import { config } from "dotenv";
+import { config } from "dotenv-flow";
 import { z } from "zod";
 
-if (process.env.APP_ENV === "test") {
-  config({ path: [".env.test", "../../.env.test"], override: true });
-} else if (process.env.APP_ENV === "development") {
-  config({ path: [".env", "../../.env"], override: true });
-}
+// dotenv-flow automatically loads in order:
+// .env -> .env.local -> .env.{APP_ENV} -> .env.{APP_ENV}.local
+// Note: .env.local is skipped in test environment for reproducibility
+config({
+  node_env: process.env.APP_ENV,
+  default_node_env: "development",
+  path: resolve(__dirname, "../../.."),
+});
 
 export const env = z
   .object({

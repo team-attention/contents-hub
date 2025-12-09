@@ -1,24 +1,25 @@
-import { env } from "./env";
 import { supabase } from "./supabase";
 
 export async function signInWithGoogle(): Promise<void> {
   const redirectUrl = chrome.identity.getRedirectURL();
 
-  const authUrl = new URL(`${env.SUPABASE_URL}/auth/v1/authorize`);
-  authUrl.searchParams.set("provider", "google");
-  authUrl.searchParams.set("redirect_to", redirectUrl);
-
-  const responseUrl = await chrome.identity.launchWebAuthFlow({
-    url: authUrl.toString(),
-    interactive: true,
+  const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: redirectUrl,
+      skipBrowserRedirect: true,
+    },
   });
 
-  if (!responseUrl) {
-    throw new Error("Authentication was cancelled");
-  }
+  if (oauthError) throw oauthError;
+  if (!data.url) throw new Error("No OAuth URL returned");
 
-  const url = new URL(responseUrl);
-  const hashParams = new URLSearchParams(url.hash.slice(1));
+  // Open OAuth page in new tab (background script will handle the callback)
+  await chrome.tabs.create({ url: data.url });
+}
+
+export async function handleOAuthCallback(url: string): Promise<void> {
+  const hashParams = new URLSearchParams(new URL(url).hash.slice(1));
 
   const accessToken = hashParams.get("access_token");
   const refreshToken = hashParams.get("refresh_token");
