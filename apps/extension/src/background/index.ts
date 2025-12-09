@@ -11,15 +11,20 @@ console.log("Contents Hub background service worker started");
 const redirectUrl = chrome.identity.getRedirectURL();
 console.log("Listening for redirect URL:", redirectUrl);
 
-chrome.webNavigation.onBeforeNavigate.addListener(
-  async (details) => {
-    console.log("Navigation detected:", details.url);
+// NOTE: Do not use URL filter - it doesn't work reliably with chromiumapp.org virtual URLs
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  // Only check main frame navigations
+  if (details.frameId !== 0) return;
 
-    if (details.url?.startsWith(redirectUrl) && details.url.includes("access_token")) {
-      console.log("OAuth callback detected:", details.url);
+  const url = details.url;
+  if (url?.startsWith(redirectUrl)) {
+    console.log("OAuth redirect detected:", url);
+
+    if (url.includes("access_token")) {
+      console.log("OAuth callback with token detected");
 
       try {
-        await handleOAuthCallback(details.url);
+        await handleOAuthCallback(url);
         console.log("OAuth callback handled successfully");
 
         // Close the OAuth tab
@@ -27,12 +32,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(
       } catch (error) {
         console.error("OAuth callback error:", error);
       }
+    } else if (url.includes("error")) {
+      console.error("OAuth error:", url);
+      await chrome.tabs.remove(details.tabId);
     }
-  },
-  {
-    url: [{ urlPrefix: redirectUrl }],
   }
-);
+});
 
 // Initialize auth state listener
 supabase.auth.onAuthStateChange((event, session) => {

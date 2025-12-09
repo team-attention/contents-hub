@@ -125,8 +125,10 @@ Implementation checklist that other agents can follow step by step:
 
 #### background/index.ts Key Points
 - [ ] Use `chrome.webNavigation.onBeforeNavigate` (NOT tabs.onUpdated!)
-- [ ] URL filter option: `{ url: [{ urlPrefix: redirectUrl }] }`
+- [ ] Do NOT use URL filter option (unreliable with chromiumapp.org)
+- [ ] Filter by `details.frameId === 0` for main frame only
 - [ ] Check for `access_token` presence
+- [ ] Handle OAuth errors (check for `error` in URL)
 - [ ] Close tab with `chrome.tabs.remove(details.tabId)` after callback handling
 
 ### Phase 4: Testing
@@ -263,15 +265,20 @@ console.log("Background service worker started");
 const redirectUrl = chrome.identity.getRedirectURL();
 console.log("Listening for redirect URL:", redirectUrl);
 
-chrome.webNavigation.onBeforeNavigate.addListener(
-  async (details) => {
-    console.log("Navigation detected:", details.url);
+// NOTE: Do not use URL filter - it doesn't work reliably with chromiumapp.org virtual URLs
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  // Only check main frame navigations
+  if (details.frameId !== 0) return;
 
-    if (details.url?.startsWith(redirectUrl) && details.url.includes("access_token")) {
-      console.log("OAuth callback detected:", details.url);
+  const url = details.url;
+  if (url?.startsWith(redirectUrl)) {
+    console.log("OAuth redirect detected:", url);
+
+    if (url.includes("access_token")) {
+      console.log("OAuth callback with token detected");
 
       try {
-        await handleOAuthCallback(details.url);
+        await handleOAuthCallback(url);
         console.log("OAuth callback handled successfully");
 
         // Close OAuth tab
@@ -279,12 +286,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(
       } catch (error) {
         console.error("OAuth callback error:", error);
       }
+    } else if (url.includes("error")) {
+      console.error("OAuth error:", url);
+      await chrome.tabs.remove(details.tabId);
     }
-  },
-  {
-    url: [{ urlPrefix: redirectUrl }], // Optimize performance with URL filter
   }
-);
+});
 
 // Auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
@@ -346,15 +353,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 **Correct Code**:
 ```typescript
-// ✅ Use webNavigation.onBeforeNavigate
-chrome.webNavigation.onBeforeNavigate.addListener(
-  async (details) => {
-    if (details.url?.startsWith(redirectUrl)) {
-      // Works correctly!
-    }
-  },
-  { url: [{ urlPrefix: redirectUrl }] }
-);
+// ✅ Use webNavigation.onBeforeNavigate (without URL filter)
+// NOTE: URL filter doesn't work reliably with chromiumapp.org virtual URLs
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  if (details.frameId !== 0) return; // Only main frame
+  if (details.url?.startsWith(redirectUrl)) {
+    // Works correctly!
+  }
+});
 ```
 
 **Required Permissions**:
@@ -398,6 +404,32 @@ await chrome.tabs.create({ url: data.url });
 **Cause**: Need to use chrome.storage instead of localStorage
 
 **Solution**: Use ChromeStorageAdapter (see implementation above)
+
+### 6. URL filter doesn't trigger callback
+
+**Cause**: `webNavigation.onBeforeNavigate` URL filter option doesn't work reliably with `chromiumapp.org` virtual URLs
+
+**Incorrect Code**:
+```typescript
+// ❌ URL filter may not trigger for chromiumapp.org
+chrome.webNavigation.onBeforeNavigate.addListener(
+  async (details) => { /* ... */ },
+  { url: [{ urlPrefix: redirectUrl }] }  // This filter is unreliable!
+);
+```
+
+**Correct Code**:
+```typescript
+// ✅ Listen to all navigations and filter manually
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  if (details.frameId !== 0) return;  // Only main frame
+  if (details.url?.startsWith(redirectUrl)) {
+    // Handle callback
+  }
+});
+```
+
+> The URL filter option is intended for performance optimization, but `chromiumapp.org` is a virtual URL that Chrome handles specially, causing the filter to behave unexpectedly.
 
 ---
 
