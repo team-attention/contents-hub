@@ -1,6 +1,6 @@
 # NestJS + Swagger + Orval: Type-Safe API Client Generation Pattern
 
-A comprehensive guide for end-to-end type-safe API development.
+A comprehensive guide for end-to-end type-safe API development in pnpm monorepo.
 
 ## Overview
 
@@ -16,12 +16,12 @@ A comprehensive guide for end-to-end type-safe API development.
  │ + @ApiProperty │              │             │          │ Hooks + Types  │
  │ + DTOs         │              └─────────────┘          └────────────────┘
  └────────────────┘                                             │
-                                                                 ▼
-                                                          ┌────────────────┐
-                                                          │ Custom Mutator │
-                                                          │ - Auth Token   │
-                                                          │ - Error Handle │
-                                                          └────────────────┘
+                                                                ▼
+                                                         ┌────────────────┐
+                                                         │ Custom Mutator │
+                                                         │ - Auth Token   │
+                                                         │ - Error Handle │
+                                                         └────────────────┘
 ```
 
 **Benefits:**
@@ -32,297 +32,322 @@ A comprehensive guide for end-to-end type-safe API development.
 
 ---
 
-## 1. Server Setup (NestJS)
+## Quick Start Checklist
 
-### 1.1 Dependencies
+Use this checklist when setting up a new project or adding Swagger/Orval to an existing project.
 
-```bash
-pnpm add @nestjs/swagger class-validator class-transformer
-```
+### Phase 1: Server Setup (NestJS)
 
-### 1.2 Swagger Generation Options
+- [ ] **1.1 Install dependencies**
+  ```bash
+  pnpm --filter server add @nestjs/swagger class-validator class-transformer
+  ```
 
-You can generate `swagger.json` in two ways:
+- [ ] **1.2 Configure nest-cli.json** with Swagger plugin
+  ```json
+  {
+    "$schema": "https://json.schemastore.org/nest-cli",
+    "collection": "@nestjs/schematics",
+    "sourceRoot": "src",
+    "compilerOptions": {
+      "deleteOutDir": true,
+      "plugins": [
+        {
+          "name": "@nestjs/swagger",
+          "options": {
+            "classValidatorShim": true,
+            "introspectComments": true,
+            "dtoFileNameSuffix": [".dto.ts", ".entity.ts"],
+            "controllerFileNameSuffix": [".controller.ts"]
+          }
+        }
+      ]
+    }
+  }
+  ```
 
-#### Option A: Runtime Generation (in main.ts)
+- [ ] **1.3 Setup Swagger in main.ts**
+  ```typescript
+  import { NestFactory } from "@nestjs/core";
+  import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+  import { writeFileSync, mkdirSync } from "node:fs";
 
-```typescript
-import { NestFactory } from "@nestjs/core";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { VersioningType } from "@nestjs/common";
-import { writeFileSync } from "fs";
+  async function bootstrap() {
+    const app = await NestFactory.create(AppModule);
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+    // Swagger Configuration
+    const config = new DocumentBuilder()
+      .setTitle("Contents Hub API")
+      .setDescription("API documentation")
+      .setVersion("1.0")
+      .addBearerAuth()
+      .build();
 
-  // API Versioning (optional but recommended)
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: "1",
-    prefix: "api/v",  // /api/v1/...
+    const document = SwaggerModule.createDocument(app, config);
+
+    // Swagger UI (development only)
+    if (process.env.APP_ENV === "development") {
+      SwaggerModule.setup("docs", app, document);
+
+      // Generate swagger.json for Orval
+      mkdirSync("__generated__", { recursive: true });
+      writeFileSync(
+        "__generated__/swagger.json",
+        JSON.stringify(document, null, 2)
+      );
+    }
+
+    await app.listen(env.PORT);
+  }
+  ```
+
+- [ ] **1.4 Add Swagger decorators to controllers**
+  ```typescript
+  import { Controller, Get } from "@nestjs/common";
+  import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+
+  @Controller("auth")
+  @ApiTags("auth")
+  @ApiBearerAuth()
+  export class AuthController {
+    @Get("me")
+    @ApiOperation({ summary: "Get current user" })
+    getMe(@User() user: AuthUser): GetMeResponseDto {
+      return { id: user.id, email: user.email };
+    }
+  }
+  ```
+
+- [ ] **1.5 Create DTOs with @ApiProperty**
+  ```typescript
+  import { ApiProperty } from "@nestjs/swagger";
+
+  export class GetMeResponseDto {
+    @ApiProperty({ example: "550e8400-e29b-41d4-a716-446655440000" })
+    id: string;
+
+    @ApiProperty({ example: "user@example.com" })
+    email: string;
+  }
+  ```
+
+- [ ] **1.6 Add generate:swagger script to package.json**
+  ```json
+  {
+    "scripts": {
+      "generate:swagger": "nest start --entryFile scripts/generate-swagger-docs"
+    }
+  }
+  ```
+
+### Phase 2: Client Setup (Orval)
+
+- [ ] **2.1 Install Orval**
+  ```bash
+  pnpm --filter client add -D orval
+  pnpm --filter client add @tanstack/react-query
+  ```
+
+- [ ] **2.2 Create orval.config.ts**
+  ```typescript
+  import { defineConfig } from "orval";
+
+  export default defineConfig({
+    api: {
+      input: {
+        target: "../server/__generated__/swagger.json",
+      },
+      output: {
+        target: "src/api/__generated__/api.ts",
+        schemas: "src/api/__generated__/models",
+        client: "react-query",
+        httpClient: "fetch",
+        override: {
+          mutator: {
+            path: "src/api/client.ts",
+            name: "apiClient",
+          },
+          query: {
+            useQuery: true,
+            useSuspenseQuery: true,
+          },
+        },
+        biome: true,
+      },
+    },
   });
+  ```
 
-  // Swagger Configuration
-  const config = new DocumentBuilder()
-    .setTitle("My API")
-    .setDescription("API description")
-    .setVersion("1.0")
-    .addBearerAuth()  // JWT Auth support
-    .build();
+- [ ] **2.3 Create custom HTTP client (src/api/client.ts)**
+  ```typescript
+  const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
-  const document = SwaggerModule.createDocument(app, config, {
-    deepScanRoutes: true,
-  });
-
-  // Swagger UI (development only recommended)
-  if (process.env.NODE_ENV === "development") {
-    SwaggerModule.setup("docs", app, () => document);
-
-    // Generate swagger.json for Orval
-    writeFileSync(
-      "__generated__/swagger.json",
-      JSON.stringify(document, null, 2)
-    );
+  export class ApiError extends Error {
+    constructor(public message: string, public status: number) {
+      super(message);
+      this.name = "ApiError";
+    }
   }
 
-  await app.listen(3000);
-}
-```
+  export const apiClient = async <T>(
+    url: string,
+    options: RequestInit
+  ): Promise<T> => {
+    const requestUrl = new URL(url).pathname;
+    const fullUrl = `${API_BASE}${requestUrl}`;
 
-#### Option B: Manual Generation Script (Recommended for CI/CD)
+    const token = localStorage.getItem("accessToken");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
-Create a standalone script to generate swagger.json without running the full server:
+    const response = await fetch(fullUrl, { ...options, headers });
 
-**scripts/generate-swagger-docs.ts:**
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new ApiError(error.message ?? response.statusText, response.status);
+    }
 
-```typescript
-import { mkdirSync, writeFileSync } from "node:fs";
-import { AppModule } from "@/app.module";
-import { VersioningType } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+    if (response.status === 204) {
+      return { status: response.status, data: null } as T;
+    }
 
-async function generateSwaggerDocs() {
-  // Create minimal app instance (no listening)
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-  });
+    const data = await response.json();
+    return { status: response.status, data } as T;
+  };
+  ```
 
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: "1",
-    prefix: "api/v",
-  });
+- [ ] **2.4 Add generate:api script**
+  ```json
+  {
+    "scripts": {
+      "generate:api": "orval"
+    }
+  }
+  ```
 
-  const config = new DocumentBuilder()
-    .setTitle("My API")
-    .setDescription("API description")
-    .setVersion("1.0")
-    .addBearerAuth()
-    .build();
+### Phase 3: Workflow Integration
 
-  const document = SwaggerModule.createDocument(app, config, {
-    deepScanRoutes: true,
-  });
+- [ ] **3.1 Add root-level scripts for monorepo**
+  ```json
+  {
+    "scripts": {
+      "generate:swagger": "pnpm --filter server generate:swagger",
+      "generate:api": "pnpm --filter client generate:api",
+      "generate": "pnpm generate:swagger && pnpm generate:api"
+    }
+  }
+  ```
 
-  // Ensure output directory exists
-  mkdirSync("__generated__", { recursive: true });
-  writeFileSync(
-    "__generated__/swagger.json",
-    JSON.stringify(document, null, 2)
-  );
+- [ ] **3.2 Test the workflow**
+  ```bash
+  pnpm generate:swagger  # Generate swagger.json
+  pnpm generate:api      # Generate React Query hooks
+  pnpm typecheck         # Verify type safety
+  ```
 
-  // Exit after generation (don't start server)
-  await app.close();
-  console.log("✨ Swagger documentation generated successfully!");
-  process.exit(0);
-}
+---
 
-generateSwaggerDocs();
-```
+## Detailed Configuration
 
-**scripts/generate-swagger-docs.sh:**
-
-```bash
-#!/bin/bash
-
-# Export required environment variables (minimal set for swagger generation)
-export APP_ENV="development"
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
-# Add other required env vars...
-
-# Change to the server directory
-cd "$(dirname "$0")/.." || exit
-
-# Run the swagger generation script
-# Using nest start with custom entry file
-nest start --entryFile scripts/generate-swagger-docs.js
-
-echo "✨ Swagger documentation generated successfully!"
-```
-
-**nest-cli.json configuration:**
+### nest-cli.json Options
 
 ```json
 {
-  "$schema": "https://json.schemastore.org/nest-cli",
-  "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true,
-    "assets": ["**/*.json"],
     "plugins": [
       {
         "name": "@nestjs/swagger",
         "options": {
           "classValidatorShim": true,
-          "introspectComments": true
+          "introspectComments": true,
+          "dtoFileNameSuffix": [".dto.ts", ".entity.ts"],
+          "controllerFileNameSuffix": [".controller.ts"]
         }
       }
     ]
-  },
-  "entryFile": "main"
-}
-```
-
-**package.json scripts:**
-
-```json
-{
-  "scripts": {
-    "generate:swagger": "bash scripts/generate-swagger-docs.sh",
-    "prebuild": "pnpm generate:swagger"
   }
 }
 ```
 
-This approach is useful when:
-- You need to generate swagger.json in CI/CD without starting the server
-- You want to avoid side effects from full server initialization
-- You need to generate docs before deployment
+| Option | Description |
+|--------|-------------|
+| `classValidatorShim` | Auto-infer validation from class-validator decorators |
+| `introspectComments` | Use JSDoc comments as descriptions |
+| `dtoFileNameSuffix` | Files to scan for DTO classes |
+| `controllerFileNameSuffix` | Files to scan for controller classes |
 
-### 1.3 Controller Decorators
+### Controller Decorators Reference
 
 ```typescript
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Body,
-  Param,
-  HttpCode,
-  HttpStatus,
-} from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from "@nestjs/swagger";
-
 @Controller("users")
-@ApiTags("users")           // Swagger UI grouping
-@ApiBearerAuth()            // Requires auth
+@ApiTags("users")               // Swagger UI grouping
+@ApiBearerAuth()                // Requires JWT auth
 export class UserController {
 
   @Get()
-  @ApiOperation({ summary: "Get all users" })
-  async getUsers(): Promise<GetUsersResponseDto> {
-    // ...
-  }
+  @ApiOperation({ summary: "List users" })
+  async getUsers(): Promise<GetUsersResponseDto> {}
 
   @Get(":id")
   @ApiOperation({ summary: "Get user by ID" })
   @ApiResponse({ status: 404, description: "User not found" })
-  async getUser(@Param("id") id: string): Promise<UserDto> {
-    // ...
-  }
+  async getUser(@Param("id") id: string): Promise<UserDto> {}
 
   @Post()
-  @ApiOperation({ summary: "Create a new user" })
+  @ApiOperation({ summary: "Create user" })
   @ApiResponse({ status: 201, description: "User created" })
-  async createUser(@Body() dto: CreateUserDto): Promise<UserDto> {
-    // ...
-  }
+  async createUser(@Body() dto: CreateUserDto): Promise<UserDto> {}
 
   @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Delete user" })
-  @HttpCode(HttpStatus.NO_CONTENT)  // 204 response
-  async deleteUser(@Param("id") id: string): Promise<void> {
-    // ...
-  }
+  async deleteUser(@Param("id") id: string): Promise<void> {}
 }
 ```
 
-### 1.4 DTO Patterns
+### DTO Patterns
 
-**Response DTO (documentation-focused):**
-
+**Response DTO:**
 ```typescript
 import { ApiProperty } from "@nestjs/swagger";
 
 export class UserDto {
-  @ApiProperty({
-    description: "User unique identifier",
-    example: "550e8400-e29b-41d4-a716-446655440000",
-  })
+  @ApiProperty({ example: "uuid-string" })
   id: string;
 
-  @ApiProperty({
-    description: "User email address",
-    example: "user@example.com",
-  })
+  @ApiProperty({ example: "user@example.com" })
   email: string;
 
-  @ApiProperty({
-    description: "User role",
-    enum: ["admin", "member", "viewer"],
-    example: "member",
-  })
+  @ApiProperty({ enum: ["admin", "member"], example: "member" })
   role: string;
 
-  @ApiProperty({
-    description: "Profile image URL",
-    required: false,  // optional field
-  })
+  @ApiProperty({ required: false })
   avatarUrl?: string;
 }
 
-// List response wrapper pattern
 export class GetUsersResponseDto {
-  @ApiProperty({
-    description: "List of users",
-    type: [UserDto],  // array syntax
-  })
+  @ApiProperty({ type: [UserDto] })
   items: UserDto[];
 }
 ```
 
-**Request DTO (validation-focused):**
-
+**Request DTO:**
 ```typescript
 import { ApiProperty } from "@nestjs/swagger";
-import {
-  IsEmail,
-  IsString,
-  IsEnum,
-  IsOptional,
-  MinLength,
-} from "class-validator";
+import { IsEmail, IsString, IsEnum, IsOptional } from "class-validator";
 
 export class CreateUserDto {
   @ApiProperty({ example: "user@example.com" })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: "John Doe" })
-  @IsString()
-  @MinLength(2)
-  name: string;
-
-  @ApiProperty({ enum: ["admin", "member", "viewer"] })
-  @IsEnum(["admin", "member", "viewer"])
+  @ApiProperty({ enum: ["admin", "member"] })
+  @IsEnum(["admin", "member"])
   role: string;
 
   @ApiProperty({ required: false })
@@ -332,30 +357,7 @@ export class CreateUserDto {
 }
 ```
 
-### 1.5 @ApiProperty Options Reference
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `description` | string | Field description |
-| `example` | any | Example value (shown in Swagger UI) |
-| `type` | Type or [Type] | Type specification, use `[UserDto]` for arrays |
-| `required` | boolean | Required field (default: true) |
-| `enum` | array | Allowed values list |
-| `nullable` | boolean | Allow null values |
-| `default` | any | Default value |
-
----
-
-## 2. Orval Setup (Client Generation)
-
-### 2.1 Dependencies
-
-```bash
-pnpm add -D orval
-pnpm add @tanstack/react-query
-```
-
-### 2.2 orval.config.ts
+### orval.config.ts Options
 
 ```typescript
 import { defineConfig } from "orval";
@@ -363,410 +365,105 @@ import { defineConfig } from "orval";
 export default defineConfig({
   api: {
     input: {
-      // Swagger JSON path (generated by server)
       target: "../server/__generated__/swagger.json",
-
-      // Tag-based filtering (optional)
+      // Optional: Filter out internal APIs
       filters: {
-        tags: [/^(?!.*internal|admin).*$/],  // exclude internal, admin
+        tags: [/^(?!.*internal).*$/],
       },
     },
     output: {
-      // Generated file path
       target: "src/api/__generated__/api.ts",
       schemas: "src/api/__generated__/models",
-
-      // Base URL (can be overridden by mutator)
-      baseUrl: "http://localhost:3000",
-
-      // React Query + fetch combination
       client: "react-query",
       httpClient: "fetch",
-
       override: {
-        // Clean up operation names (optional)
-        operationName: (operation, route, verb) => {
+        // Clean operation names
+        operationName: (operation) => {
           const name = operation.operationId ?? "";
-          return name.replace(/Controller_|_api\/v\d+/g, "");
+          return name.replace(/Controller_/g, "");
         },
-
-        // Custom HTTP Client
         mutator: {
           path: "src/api/client.ts",
           name: "apiClient",
         },
-
-        // React Query options
         query: {
           useQuery: true,
-          useSuspenseQuery: true,  // React 18+
+          useSuspenseQuery: true,
           useInfinite: false,
         },
       },
-
-      // Formatter (optional)
-      biome: true,  // or prettier: true
+      biome: true,  // Use Biome for formatting
     },
   },
 });
 ```
 
-### 2.3 Custom HTTP Client (Mutator)
-
-`src/api/client.ts`:
-
-```typescript
-// Custom client handling auth token injection, error handling, URL transformation
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-
-// Auth token getter (implement according to your project)
-const getAuthToken = async (): Promise<string | null> => {
-  // Supabase example
-  // return (await supabase.auth.getSession()).data.session?.access_token;
-
-  // localStorage example
-  return localStorage.getItem("accessToken");
-};
-
-// Custom Error Classes
-export class ApiError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-
-  static is(error: unknown): error is ApiError {
-    return error instanceof ApiError;
-  }
-}
-
-export class AuthError extends ApiError {
-  constructor(message: string = "Unauthorized") {
-    super(message, 401);
-    this.name = "AuthError";
-  }
-}
-
-// Main HTTP Client
-export const apiClient = async <T>(
-  url: string,
-  options: RequestInit
-): Promise<T> => {
-  // URL transformation (dev proxy, etc.)
-  const requestUrl = new URL(url).pathname;
-  const fullUrl = `${API_BASE}${requestUrl}`;
-
-  // Auth header injection
-  const token = await getAuthToken();
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  // Execute fetch
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers,
-  });
-
-  // Error handling
-  if (response.status === 401) {
-    throw new AuthError();
-  }
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(
-      error.message ?? response.statusText,
-      response.status
-    );
-  }
-
-  // Empty response handling (204, etc.)
-  if (response.status === 204) {
-    return { status: response.status, data: null } as T;
-  }
-
-  const data = await response.json();
-  return { status: response.status, data, headers: response.headers } as T;
-};
-```
-
-### 2.4 Generate Client
-
-```bash
-# package.json scripts
-{
-  "scripts": {
-    "generate:api": "orval"
-  }
-}
-
-# Run
-pnpm generate:api
-```
-
 ---
 
-## 3. Client Usage (React)
+## Client Usage
 
-### 3.1 Query Hook (GET)
+### Query Hooks
 
 ```typescript
-import { useGetUsers } from "@/api/__generated__/api";
+import { useGetUsers, useGetUsersSuspense } from "@/api/__generated__/api";
 
+// Standard hook
 function UserList() {
   const { data, isLoading, error } = useGetUsers();
-
   if (isLoading) return <Spinner />;
-  if (error) return <ErrorMessage error={error} />;
-
-  return (
-    <ul>
-      {data?.data.items.map(user => (
-        <li key={user.id}>{user.name}</li>
-      ))}
-    </ul>
-  );
+  return <ul>{data?.data.items.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
 }
-```
 
-### 3.2 Suspense Query Hook
-
-```typescript
-import { useGetUsersSuspense } from "@/api/__generated__/api";
-import { Suspense } from "react";
-
-function UserListContent() {
-  // Loading handled by Suspense boundary
+// Suspense hook
+function UserListSuspense() {
   const { data } = useGetUsersSuspense();
-
-  return (
-    <ul>
-      {data?.data.items.map(user => (
-        <li key={user.id}>{user.name}</li>
-      ))}
-    </ul>
-  );
-}
-
-function UserList() {
-  return (
-    <Suspense fallback={<Spinner />}>
-      <UserListContent />
-    </Suspense>
-  );
+  return <ul>{data?.data.items.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
 }
 ```
 
-### 3.3 Mutation Hook (POST/PUT/DELETE)
+### Mutation Hooks
 
 ```typescript
-import {
-  useCreateUser,
-  getGetUsersQueryKey
-} from "@/api/__generated__/api";
+import { useCreateUser, getGetUsersQueryKey } from "@/api/__generated__/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 function CreateUserForm() {
   const queryClient = useQueryClient();
-
   const { mutateAsync, isPending } = useCreateUser({
     mutation: {
-      onSuccess: async () => {
-        // Invalidate related queries -> auto refetch
-        await queryClient.invalidateQueries({
-          queryKey: getGetUsersQueryKey(),
-        });
-      },
-      onError: (error) => {
-        if (ApiError.is(error)) {
-          toast.error(error.message);
-        }
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetUsersQueryKey() });
       },
     },
   });
 
   const handleSubmit = async (formData: CreateUserInput) => {
     await mutateAsync({ data: formData });
-    toast.success("User created!");
   };
 
-  return (
-    <form onSubmit={handleSubmit}>
-      {/* form fields */}
-      <button disabled={isPending}>
-        {isPending ? "Creating..." : "Create"}
-      </button>
-    </form>
-  );
-}
-```
-
-### 3.4 With Path Parameters
-
-```typescript
-import { useGetUser, useDeleteUser } from "@/api/__generated__/api";
-
-function UserDetail({ userId }: { userId: string }) {
-  // Pass path parameter
-  const { data: user } = useGetUser(userId);
-
-  const { mutateAsync: deleteUser } = useDeleteUser();
-
-  const handleDelete = async () => {
-    await deleteUser({ id: userId });
-  };
-
-  return (
-    <div>
-      <h1>{user?.data.name}</h1>
-      <button onClick={handleDelete}>Delete</button>
-    </div>
-  );
+  return <form onSubmit={handleSubmit}>...</form>;
 }
 ```
 
 ---
 
-## 4. Best Practices
-
-### 4.1 Response Wrapper Pattern
-
-Use wrapper DTOs for consistent response structure:
-
-```typescript
-// Single item
-export class GetUserResponseDto {
-  @ApiProperty({ type: UserDto })
-  item: UserDto;
-}
-
-// List
-export class GetUsersResponseDto {
-  @ApiProperty({ type: [UserDto] })
-  items: UserDto[];
-}
-
-// Paginated
-export class PaginatedUsersResponseDto {
-  @ApiProperty({ type: [UserDto] })
-  items: UserDto[];
-
-  @ApiProperty()
-  total: number;
-
-  @ApiProperty()
-  page: number;
-
-  @ApiProperty()
-  pageSize: number;
-}
-```
-
-### 4.2 OperationId for Unique Names
-
-When multiple controllers have methods with the same name:
-
-```typescript
-@Controller("admin/users")
-export class AdminUserController {
-  @Get()
-  @ApiOperation({
-    summary: "Get all users (admin)",
-    operationId: "getAdminUsers"  // Specify unique name
-  })
-  async getUsers(): Promise<GetUsersResponseDto> { }
-}
-
-@Controller("users")
-export class UserController {
-  @Get()
-  @ApiOperation({
-    summary: "Get all users",
-    operationId: "getUsers"
-  })
-  async getUsers(): Promise<GetUsersResponseDto> { }
-}
-```
-
-### 4.3 Error Response Documentation
-
-```typescript
-@Get(":id")
-@ApiOperation({ summary: "Get user by ID" })
-@ApiResponse({
-  status: 200,
-  type: UserDto,
-  description: "User found"
-})
-@ApiResponse({
-  status: 404,
-  description: "User not found"
-})
-@ApiResponse({
-  status: 401,
-  description: "Unauthorized"
-})
-async getUser(@Param("id") id: string): Promise<UserDto> { }
-```
-
-### 4.4 Tag Organization
-
-```typescript
-// Feature-based grouping
-@ApiTags("users")           // /users/*
-@ApiTags("users/profile")   // /users/:id/profile/*
-@ApiTags("auth")            // /auth/*
-
-// Separate public/internal with Orval filter
-@ApiTags("internal/metrics")  // filtered out by Orval
-```
-
----
-
-## 5. Development Workflow
-
-```bash
-# 1. Server: Modify API and restart server (runtime generation)
-pnpm --filter server dev
-
-# OR: Generate swagger.json manually (without running server)
-pnpm --filter server generate:swagger
-
-# 2. swagger.json is generated in __generated__/swagger.json
-
-# 3. Client: Regenerate API client
-pnpm --filter web generate:api
-
-# 4. Check TypeScript errors -> Immediately detect API changes
-pnpm type-check
-```
-
-### CI/CD Integration
+## CI/CD Integration
 
 ```yaml
-# GitHub Actions example
+# .github/workflows/ci.yml
 jobs:
   build:
     steps:
-      - name: Generate Swagger docs
-        run: pnpm --filter server generate:swagger
+      - name: Generate Swagger
+        run: pnpm generate:swagger
 
-      - name: Generate API client
-        run: pnpm --filter web generate:api
+      - name: Generate API Client
+        run: pnpm generate:api
 
-      - name: Type check
-        run: pnpm type-check
+      - name: Type Check
+        run: pnpm typecheck
 
-      - name: Check for uncommitted changes
+      - name: Check Generated Files
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             echo "Generated files are out of sync!"
@@ -776,35 +473,14 @@ jobs:
 
 ---
 
-## 6. Troubleshooting
+## Troubleshooting
 
-### Generated types don't match server
-
-```bash
-# Regenerate swagger.json
-pnpm --filter server generate:swagger
-
-# Regenerate API client
-pnpm generate:api
-```
-
-### Duplicate operation names
-
-```typescript
-// Solution: Specify operationId
-@ApiOperation({
-  summary: "Get items",
-  operationId: "getWorkspaceItems"  // Unique name
-})
-```
-
-### Optional fields not nullable in client
-
-```typescript
-// Explicitly specify nullable in DTO
-@ApiProperty({ required: false, nullable: true })
-avatarUrl?: string | null;
-```
+| Problem | Solution |
+|---------|----------|
+| Types don't match server | Re-run `pnpm generate:swagger && pnpm generate:api` |
+| Duplicate operation names | Add unique `operationId` in `@ApiOperation()` |
+| Optional field not nullable | Use `@ApiProperty({ required: false, nullable: true })` |
+| Empty swagger.json | Check nest-cli.json plugin config |
 
 ---
 
@@ -812,9 +488,7 @@ avatarUrl?: string | null;
 
 | Layer | Responsibility | Key Files |
 |-------|---------------|-----------|
-| **Server** | API definition + Swagger generation | `main.ts`, `*.controller.ts`, `*.dto.ts`, `scripts/generate-swagger-docs.ts` |
-| **Orval** | Code generation config | `orval.config.ts` |
-| **Client** | Custom HTTP logic | `client.ts` (mutator) |
+| **Server** | API + Swagger generation | `main.ts`, `*.controller.ts`, `*.dto.ts` |
+| **Config** | Swagger plugin | `nest-cli.json` |
+| **Orval** | Code generation | `orval.config.ts`, `client.ts` |
 | **Generated** | Type-safe hooks | `__generated__/api.ts` |
-
-This pattern enables compile-time detection of client errors when APIs change, significantly reducing runtime errors.

@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm test:e2e:*)",
+      "SlashCommand(/ctx.*)",
+      "Bash(mkdir:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue view:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(cat:*)",
+      "Bash(fly deploy:*)",
+      "Bash(npx ctx:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/ctx.track-session.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/ctx.show-current-issue.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
