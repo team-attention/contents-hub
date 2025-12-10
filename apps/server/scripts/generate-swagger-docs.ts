@@ -1,8 +1,10 @@
 // Set dummy env vars for swagger generation (no actual DB connection needed)
 process.env.APP_ENV ??= "development";
 process.env.DATABASE_URL ??= "postgresql://dummy:dummy@localhost:5432/dummy";
+process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_ANON_KEY ??= "dummy";
 process.env.SUPABASE_JWT_SECRET ??= "dummy";
+process.env.ANTHROPIC_API_KEY ??= "dummy";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { NestFactory } from "@nestjs/core";
