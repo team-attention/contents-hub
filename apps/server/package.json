@@ -15,7 +15,8 @@
     "test:e2e": "APP_ENV=test jest --config ./jest-e2e.config.js --runInBand",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "generate:swagger": "ts-node -r tsconfig-paths/register scripts/generate-swagger-docs.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -27,6 +28,8 @@
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/swagger": "^11.2.3",
     "@supabase/supabase-js": "^2.47.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
     "dotenv": "^16.4.7",
     "dotenv-flow": "^4.1.0",
     "drizzle-orm": "^0.38.2",
@@ -54,6 +57,8 @@
     "supertest": "^7.1.4",
     "testcontainers": "^11.9.0",
     "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.2"
   }
 }

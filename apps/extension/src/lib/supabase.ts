@@ -11,4 +11,7 @@ export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  db: {
+    schema: "contents_hub",
+  },
 });

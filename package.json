@@ -19,7 +19,10 @@
     "lint": "biome lint",
     "format": "biome format --write",
     "typecheck": "pnpm run -r --parallel --stream typecheck",
-    "test": "pnpm run -r --parallel --stream test"
+    "test": "pnpm run -r --parallel --stream test",
+    "generate:swagger": "pnpm --filter @contents-hub/server generate:swagger",
+    "generate:api": "pnpm --filter @contents-hub/extension generate:api",
+    "generate": "pnpm generate:swagger && pnpm generate:api"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

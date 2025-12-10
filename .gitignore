@@ -40,3 +40,6 @@ coverage/
 
 # Chrome Extension
 apps/extension/dist/
+
+# Generated files
+__generated__
