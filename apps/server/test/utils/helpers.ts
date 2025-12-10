@@ -10,9 +10,8 @@ import type { TestDb } from "./global";
 
 // This is a workaround for the issue that pushSchema is not working in programmatic way.
 // REF: https://github.com/drizzle-team/drizzle-orm/discussions/4373#discussioncomment-12743792
-const { generateDrizzleJson, generateMigration } = require("drizzle-kit/api") as typeof import(
-  "drizzle-kit/api",
-);
+// biome-ignore format: typeof import() must be on single line for TypeScript
+const { generateDrizzleJson, generateMigration } = require("drizzle-kit/api") as typeof import("drizzle-kit/api");
 
 async function pushSchema(db: PostgresJsDatabase<typeof schema>) {
   const prevJson = generateDrizzleJson({});
