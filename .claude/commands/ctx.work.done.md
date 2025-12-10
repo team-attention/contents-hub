@@ -4,6 +4,26 @@ argument-hint: [--skip-extract]
 allowed-tools: [Read, Write, Edit, Bash, TodoWrite, SlashCommand, mcp__linear-server__list_comments, mcp__linear-server__get_issue]
 ---
 
+## Runtime Config Resolution
+
+Before executing this command, read `ctx.config.yaml` from the project root to resolve configuration variables.
+
+**Config Variables Used:**
+| Variable | Config Path | Default |
+|----------|-------------|---------|
+| `{{global.directory}}` | `global.directory` | `ctx` |
+| `{{work.directory}}` | `work.directory` | `.worktrees` |
+| `{{work.issue_store.type}}` | `work.issue_store.type` | `local` |
+| `{{work.issue_store.url}}` | `work.issue_store.url` | - |
+| `{{work.issue_store.project}}` | `work.issue_store.project` | - |
+
+**How to resolve:**
+1. Read `ctx.config.yaml` using the Read tool
+2. Parse YAML content
+3. Replace `{{variable}}` placeholders with actual config values
+4. Use defaults if config values are not set
+
+
 # Task
 
 Complete the current work session by extracting valuable context and cleaning up the workspace (`.ctx.current`). This command marks the end of the issue lifecycle.
@@ -82,7 +102,7 @@ Use UPDATE mode or specify a different path
 ## invalid-context-path
 ```
 ❌ Error: Invalid context path format
-Expected: *.ctx.md (local) or ctx/**/*.md (global)
+Expected: *.ctx.md (local) or {{global.directory}}/**/*.md (global)
 ```
 
 ## registry-lookup-failed
@@ -105,7 +125,7 @@ Creating new context file
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -284,13 +304,13 @@ git worktree list
 pwd
 ```
 
-If working in a worktree (path contains `.worktrees/`):
+If working in a worktree (path contains `{{work.directory}}/`):
 ```
-ℹ️ You're in a worktree: .worktrees/issue-<id>
+ℹ️ You're in a worktree: {{work.directory}}/issue-<id>
 
 To cleanup the worktree later:
   cd <main-repo-path>
-  git worktree remove .worktrees/issue-<id>
+  git worktree remove {{work.directory}}/issue-<id>
 ```
 
 ---

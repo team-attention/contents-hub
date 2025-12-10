@@ -21,8 +21,9 @@ global:
 work:
   directory: .worktrees
   issue_store:
-    type: github-issue
-    url: https://github.com/team-attention/contents-hub/issues
+    type: linear
+    url: https://linear.app/team-attention/
+    project: Contents Hub
 frontmatter:
   local: optional
   global: optional

@@ -4,6 +4,26 @@ argument-hint: [-w|--worktree] <url|file-path|requirements>
 allowed-tools: [Read, Write, Bash, mcp__linear-server__get_issue, mcp__linear-server__list_comments, mcp__linear-server__create_issue]
 ---
 
+## Runtime Config Resolution
+
+Before executing this command, read `ctx.config.yaml` from the project root to resolve configuration variables.
+
+**Config Variables Used:**
+| Variable | Config Path | Default |
+|----------|-------------|---------|
+| `{{global.directory}}` | `global.directory` | `ctx` |
+| `{{work.directory}}` | `work.directory` | `.worktrees` |
+| `{{work.issue_store.type}}` | `work.issue_store.type` | `local` |
+| `{{work.issue_store.url}}` | `work.issue_store.url` | - |
+| `{{work.issue_store.project}}` | `work.issue_store.project` | - |
+
+**How to resolve:**
+1. Read `ctx.config.yaml` using the Read tool
+2. Parse YAML content
+3. Replace `{{variable}}` placeholders with actual config values
+4. Use defaults if config values are not set
+
+
 # Task
 
 Initialize a new issue by creating `.ctx.current` and optionally creating a new issue (local file, GitHub, or Linear based on config).
@@ -11,8 +31,8 @@ Initialize a new issue by creating `.ctx.current` and optionally creating a new 
 **Input Types**:
 1. **Online URL** (starts with `http`): GitHub/Linear issue → Online flow
 2. **Local file path** (existing file): Local issue file → Offline flow (use existing)
-3. **Requirements text**: Create new issue → Based on `github-issue` config:
-   - `local`: Create local file in `ctx/issues/`
+3. **Requirements text**: Create new issue → Based on `{{work.issue_store.type}}` config:
+   - `local`: Create local file in `{{global.directory}}/issues/`
    - `github-issue`: Create GitHub Issue via `gh` CLI
    - `linear`: Create Linear Issue via MCP
 
@@ -68,8 +88,8 @@ Based on `actual_input` type:
 ### 0.5.3 Create Worktree
 
 ```bash
-mkdir -p .worktrees
-git worktree add .worktrees/issue-{identifier} -b issue-{identifier}
+mkdir -p {{work.directory}}
+git worktree add {{work.directory}}/issue-{identifier} -b issue-{identifier}
 ```
 
 **On error** (branch already exists):
@@ -78,16 +98,16 @@ git worktree add .worktrees/issue-{identifier} -b issue-{identifier}
 
 Solutions:
 1. Delete existing branch: git branch -d issue-{identifier}
-2. Remove stale worktree: git worktree remove .worktrees/issue-{identifier}
+2. Remove stale worktree: git worktree remove {{work.directory}}/issue-{identifier}
 3. Use different identifier
 ```
 
 ### 0.5.4 Set Working Directory Context
 
 From this point forward, all file operations use the worktree path:
-- `WORKTREE_PATH = .worktrees/issue-{identifier}`
+- `WORKTREE_PATH = {{work.directory}}/issue-{identifier}`
 - `.ctx.current` → `{WORKTREE_PATH}/.ctx.current`
-- `ctx/issues/` → `{WORKTREE_PATH}/ctx/issues/`
+- `{{global.directory}}/issues/` → `{WORKTREE_PATH}/{{global.directory}}/issues/`
 
 ---
 
@@ -97,7 +117,7 @@ Check `actual_input` (not `$ARGUMENTS`):
 
 1. Starts with `http` → **Online issue** (Flow A)
 2. Is a file path that exists → **Existing local file** (Flow B1)
-3. Otherwise → **Create new issue** - branch based on `github-issue`:
+3. Otherwise → **Create new issue** - branch based on `{{work.issue_store.type}}`:
    - `local` → Flow B2-local (create local file)
    - `github-issue` → Flow B2-github (create GitHub Issue)
    - `linear` → Flow B2-linear (create Linear Issue)
@@ -189,7 +209,7 @@ Extract from the fetched issue:
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -210,13 +230,13 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 **If worktree_mode is true:**
 ```
-✓ Worktree created: .worktrees/issue-{identifier}
+✓ Worktree created: {{work.directory}}/issue-{identifier}
 ✓ Branch: issue-{identifier}
 ✓ Initialized issue: <title>
 📎 Source: <url>
 
 👉 To start working:
-   cd .worktrees/issue-{identifier}
+   cd {{work.directory}}/issue-{identifier}
 
 Next: Run /ctx.work.plan to generate implementation plan
 ```
@@ -256,7 +276,7 @@ Same as Flow A step 1.2.
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -264,7 +284,7 @@ Same as Flow A step 1.2.
 
 
 Create the file with `issue` field set to the file path.
-Example: `ctx/issues/2025-11-19-1430_add-dark-mode.md`
+Example: `{{global.directory}}/issues/2025-11-19-1430_add-dark-mode.md`
 
 ### 1.4 Show Summary
 
@@ -279,14 +299,14 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 **If worktree_mode is true:**
 ```
-✓ Worktree created: .worktrees/issue-{identifier}
+✓ Worktree created: {{work.directory}}/issue-{identifier}
 ✓ Branch: issue-{identifier}
 ✓ Initialized issue from file: <filename>
 📎 Title: <issue-title>
 📊 Status: <status>
 
 👉 To start working:
-   cd .worktrees/issue-{identifier}
+   cd {{work.directory}}/issue-{identifier}
 
 Next: Run /ctx.work.plan to generate implementation plan
 ```
@@ -295,13 +315,13 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 ## Flow B2-local: Create Local Issue File
 
-> **When**: `github-issue` is `local`
+> **When**: `{{work.issue_store.type}}` is `local`
 
 ### 2.1 Ensure Directory Exists
 
-Check if `ctx/issues/` directory exists. Use Bash tool to create it:
+Check if `{{global.directory}}/issues/` directory exists. Use Bash tool to create it:
 ```bash
-mkdir -p ctx/issues
+mkdir -p {{global.directory}}/issues
 ```
 
 This ensures the directory structure is ready before creating the issue file.
@@ -349,7 +369,7 @@ Examples:
 
 ### 2.6 Create Issue File
 
-Use the Write tool to create file at `ctx/issues/{filename}` with this structure:
+Use the Write tool to create file at `{{global.directory}}/issues/{filename}` with this structure:
 
 ```markdown
 ---
@@ -384,20 +404,20 @@ git_branch: ""
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
 **Location:** Project root (`.ctx.current`)
 
 
-Create the file with `issue` field set to `ctx/issues/<filename>`
+Create the file with `issue` field set to `{{global.directory}}/issues/<filename>`
 
 ### 2.8 Show Summary
 
 **If worktree_mode is false:**
 ```
-✓ Created issue file: ctx/issues/<filename>
+✓ Created issue file: {{global.directory}}/issues/<filename>
 ✓ Initialized .ctx.current
 
 Next steps:
@@ -407,13 +427,13 @@ Next steps:
 
 **If worktree_mode is true:**
 ```
-✓ Worktree created: .worktrees/issue-{identifier}
+✓ Worktree created: {{work.directory}}/issue-{identifier}
 ✓ Branch: issue-{identifier}
-✓ Created issue file: ctx/issues/<filename>
+✓ Created issue file: {{global.directory}}/issues/<filename>
 ✓ Initialized .ctx.current
 
 👉 To start working:
-   cd .worktrees/issue-{identifier}
+   cd {{work.directory}}/issue-{identifier}
 
 Next steps:
 1. Edit the Spec section in the issue file if needed
@@ -424,7 +444,7 @@ Next steps:
 
 ## Flow B2-github: Create GitHub Issue
 
-> **When**: `github-issue` is `github-issue`
+> **When**: `{{work.issue_store.type}}` is `github-issue`
 
 ### 2.1 Check GitHub CLI
 
@@ -453,7 +473,7 @@ Same as Flow A step 1.2.
 
 ### 2.4 Create GitHub Issue
 
-Extract repo info from `https://github.com/team-attention/contents-hub/issues`:
+Extract repo info from `{{work.issue_store.url}}`:
 - Pattern: `https://github.com/{owner}/{repo}/issues`
 - Extract: `owner`, `repo`
 
@@ -479,7 +499,7 @@ Capture the returned issue URL from stdout (e.g., `https://github.com/owner/repo
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -501,13 +521,13 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 **If worktree_mode is true:**
 ```
-✓ Worktree created: .worktrees/issue-{identifier}
+✓ Worktree created: {{work.directory}}/issue-{identifier}
 ✓ Branch: issue-{identifier}
 ✓ Created GitHub Issue: <title>
 📎 URL: <github-issue-url>
 
 👉 To start working:
-   cd .worktrees/issue-{identifier}
+   cd {{work.directory}}/issue-{identifier}
 
 Next: Run /ctx.work.plan to generate implementation plan
 ```
@@ -516,7 +536,7 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 ## Flow B2-linear: Create Linear Issue
 
-> **When**: `github-issue` is `linear`
+> **When**: `{{work.issue_store.type}}` is `linear`
 
 ### 2.1 Check Linear MCP
 
@@ -542,22 +562,37 @@ Same as Flow A step 1.2.
 
 ### 2.4 Get Team ID from URL
 
-Extract team/workspace info from `https://github.com/team-attention/contents-hub/issues`:
+Extract team/workspace info from `{{work.issue_store.url}}`:
 - Pattern: `https://linear.app/{workspace}`
 - The workspace name is used to identify the team
 
 Use `mcp__linear-server__list_teams` (if available) to get the team ID, or ask user to provide it.
 
-### 2.5 Create Linear Issue
+### 2.5 Validate project
+
+Check if `{{work.issue_store.project}}` is configured. If not, show error:
+```
+❌ Error: project is required for Linear issue store
+Please add project to your ctx.config.yaml:
+
+work:
+  issue_store:
+    type: linear
+    url: https://linear.app/{workspace}
+    project: YOUR_PROJECT_NAME
+```
+
+### 2.6 Create Linear Issue
 
 Use `mcp__linear-server__create_issue` with:
 - `title`: Generated title from step 2.2
 - `description`: User's requirements
 - `teamId`: From step 2.4
+- `project`: From `{{work.issue_store.project}}`
 
-Capture the returned issue identifier (e.g., `ABC-123`) and URL.
+Capture the returned issue identifier (e.g., `ABC-123`) and URL.  
 
-### 2.6 Write `.ctx.current`
+### 2.7 Write `.ctx.current`
 
 **.ctx.current Structure** (JSON format):
 
@@ -572,7 +607,7 @@ Capture the returned issue identifier (e.g., `ABC-123`) and URL.
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -581,7 +616,7 @@ Capture the returned issue identifier (e.g., `ABC-123`) and URL.
 
 Create the file with `issue` field set to the **Linear Issue URL** (e.g., `https://linear.app/workspace/issue/ABC-123`).
 
-### 2.7 Show Summary
+### 2.8 Show Summary
 
 **If worktree_mode is false:**
 ```
@@ -595,14 +630,14 @@ Next: Run /ctx.work.plan to generate implementation plan
 
 **If worktree_mode is true:**
 ```
-✓ Worktree created: .worktrees/issue-{identifier}
+✓ Worktree created: {{work.directory}}/issue-{identifier}
 ✓ Branch: issue-{identifier}
 ✓ Created Linear Issue: <title>
 📎 ID: <issue-id>
 📎 URL: <linear-issue-url>
 
 👉 To start working:
-   cd .worktrees/issue-{identifier}
+   cd {{work.directory}}/issue-{identifier}
 
 Next: Run /ctx.work.plan to generate implementation plan
 ```
@@ -619,7 +654,7 @@ Next: Run /ctx.work.plan to generate implementation plan
   Examples:
     /ctx.work.init https://github.com/user/repo/issues/123
     /ctx.work.init --worktree https://github.com/user/repo/issues/123
-    /ctx.work.init ctx/issues/2025-11-19-1430_add-dark-mode.md
+    /ctx.work.init {{global.directory}}/issues/2025-11-19-1430_add-dark-mode.md
     /ctx.work.init -w "Add dark mode toggle to settings page"
   ```
 - **Invalid file path**: File doesn't exist or missing required frontmatter
@@ -640,8 +675,8 @@ Next: Run /ctx.work.plan to generate implementation plan
 # Important Notes
 
 - **DO NOT create implementation plan** - that's done by `/ctx.work.plan`
-- **Issue store config** (`github-issue`):
-  - `local`: Create file in `ctx/issues/`, `.ctx.current` points to file path
+- **Issue store config** (`{{work.issue_store.type}}`):
+  - `local`: Create file in `{{global.directory}}/issues/`, `.ctx.current` points to file path
   - `github-issue`: Create GitHub Issue via `gh` CLI, `.ctx.current` points to issue URL
   - `linear`: Create Linear Issue via MCP, `.ctx.current` points to issue URL
 - **Online URL input** (starts with `http`): Always use Flow A regardless of `issue_store.type`
@@ -649,7 +684,7 @@ Next: Run /ctx.work.plan to generate implementation plan
   - Local issues: `initialized` → `in_progress` (after `/ctx.work.plan`)
   - GitHub/Linear issues: Status managed on respective platforms
 - **AI generates summary and title**: Be concise, actionable, and descriptive
-- **Directory creation**: Ensure `ctx/issues/` directory exists before creating file (Flow B2-local only)
+- **Directory creation**: Ensure `{{global.directory}}/issues/` directory exists before creating file (Flow B2-local only)
 - **Timestamp format**: Always use ISO 8601 format (`YYYY-MM-DDTHH:mm:ssZ`)
 - **Worktree mode**: When `--worktree` flag is used:
   - All files are created inside the worktree directory

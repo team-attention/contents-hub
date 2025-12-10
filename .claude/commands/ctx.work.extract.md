@@ -4,6 +4,26 @@ argument-hint: ""
 allowed-tools: [Read, Write, Edit, Bash, TodoWrite, mcp__linear-server__list_comments, mcp__linear-server__get_issue]
 ---
 
+## Runtime Config Resolution
+
+Before executing this command, read `ctx.config.yaml` from the project root to resolve configuration variables.
+
+**Config Variables Used:**
+| Variable | Config Path | Default |
+|----------|-------------|---------|
+| `{{global.directory}}` | `global.directory` | `ctx` |
+| `{{work.directory}}` | `work.directory` | `.worktrees` |
+| `{{work.issue_store.type}}` | `work.issue_store.type` | `local` |
+| `{{work.issue_store.url}}` | `work.issue_store.url` | - |
+| `{{work.issue_store.project}}` | `work.issue_store.project` | - |
+
+**How to resolve:**
+1. Read `ctx.config.yaml` using the Read tool
+2. Parse YAML content
+3. Replace `{{variable}}` placeholders with actual config values
+4. Use defaults if config values are not set
+
+
 # Task
 
 Extract valuable context from the current work session (chat history, issue comments, PR reviews) and update global and local context files. This command helps preserve important decisions, patterns, and feedback for future development.
@@ -70,7 +90,7 @@ Use UPDATE mode or specify a different path
 ## invalid-context-path
 ```
 ❌ Error: Invalid context path format
-Expected: *.ctx.md (local) or ctx/**/*.md (global)
+Expected: *.ctx.md (local) or {{global.directory}}/**/*.md (global)
 ```
 
 ## registry-lookup-failed
@@ -93,7 +113,7 @@ Creating new context file
 - `issue`: URL (online) or file path (offline) to the issue
   - Example (online): `https://github.com/user/repo/issues/123`
   - Example (online): `https://linear.app/team/issue/ABC-123`
-  - Example (offline): `ctx/issues/2025-11-20-0000_feature.md`
+  - Example (offline): `{{global.directory}}/issues/2025-11-20-0000_feature.md`
 - `sessions`: Array of JSONL session file paths (optional)
   - Example: `[".claude/sessions/2025-11-20-session.jsonl"]`
 
@@ -202,7 +222,7 @@ Use TodoWrite to mark analysis step as in_progress.
 
 ### Classification Criteria
 
-**Global Context** (goes to `ctx/*.md`):
+**Global Context** (goes to `{{global.directory}}/*.md`):
 - New architectural patterns
 - Project-wide coding conventions
 - Team guidelines and best practices
@@ -230,7 +250,7 @@ Generate a structured proposal in markdown:
 **Description**:
 We adopted the Result<T, E> pattern for error handling instead of throwing exceptions. This provides better type safety and forces explicit error handling.
 
-**Suggested file**: `ctx/patterns/error-handling.md`
+**Suggested file**: `{{global.directory}}/patterns/error-handling.md`
 
 ---
 
@@ -239,7 +259,7 @@ We adopted the Result<T, E> pattern for error handling instead of throwing excep
 **Description**:
 Prefer type guard functions (`isFoo(x)`) over type assertions (`x as Foo`) for better runtime safety.
 
-**Suggested file**: `ctx/conventions/typescript.md`
+**Suggested file**: `{{global.directory}}/conventions/typescript.md`
 
 ---
 
@@ -330,7 +350,7 @@ Use TodoWrite to mark application step as in_progress.
 
 For each global context suggestion:
 
-1. Resolve the target file path (e.g., `ctx/patterns/error-handling.md`)
+1. Resolve the target file path (e.g., `{{global.directory}}/patterns/error-handling.md`)
 2. Check if file exists using Read tool
 3. If exists:
    - Read current content
@@ -382,8 +402,8 @@ After all files are updated:
 ✅ Context extraction complete!
 
 Updated files:
-- ctx/global/patterns/error-handling.md (created)
-- ctx/global/conventions/typescript.md (updated)
+- {{global.directory}}/global/patterns/error-handling.md (created)
+- {{global.directory}}/global/conventions/typescript.md (updated)
 - src/services/payment.ctx.md (created)
 - src/lib/stripe-client.ctx.md (created)
 
@@ -432,7 +452,7 @@ Updated files:
 
 ## File Organization
 
-**Global context structure** (`ctx/global/`):
+**Global context structure** (`{{global.directory}}/global/`):
 ```
 patterns/           # Architectural patterns
   error-handling.md
