@@ -82,7 +82,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Listen for messages from popup or content scripts
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Received message:", message);
 
   if (message.type === "SUBSCRIBE") {
@@ -97,5 +97,52 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "QUICK_SUBSCRIBE") {
+    handleQuickSubscribe(sender.tab?.id).then((result) => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
   return true;
 });
+
+async function handleQuickSubscribe(
+  tabId: number | undefined,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTab = tabs[0];
+
+    if (!currentTab?.url) {
+      return { success: false, error: "No active tab URL" };
+    }
+
+    const url = currentTab.url;
+    console.log("Quick subscribe to:", url);
+
+    // TODO: Implement actual subscription logic with server
+    // For now, just log and return success
+
+    // Send feedback to content script
+    if (tabId) {
+      chrome.tabs
+        .sendMessage(tabId, {
+          type: "SUBSCRIBE_FEEDBACK",
+          success: true,
+          url,
+        })
+        .catch(() => {
+          // Ignore if content script not ready
+        });
+    }
+
+    return { success: true, url };
+  } catch (error) {
+    console.error("Quick subscribe error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
