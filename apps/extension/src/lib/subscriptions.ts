@@ -12,10 +12,7 @@ export interface Subscription {
   updatedAt: string;
 }
 
-export async function createSubscription(
-  url: string,
-  name: string
-): Promise<Subscription> {
+export async function createSubscription(url: string, name: string): Promise<Subscription> {
   const { data, error } = await supabase
     .from("subscriptions")
     .insert({
@@ -55,9 +52,7 @@ export async function getSubscriptions(): Promise<Subscription[]> {
   return (data || []).map(mapToSubscription);
 }
 
-export async function getSubscriptionByUrl(
-  url: string
-): Promise<Subscription | null> {
+export async function getSubscriptionByUrl(url: string): Promise<Subscription | null> {
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")

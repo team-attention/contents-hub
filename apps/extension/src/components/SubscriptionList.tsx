@@ -35,9 +35,7 @@ export function SubscriptionList({
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
-      <p className="text-xs text-gray-500 mb-2">
-        My subscriptions ({subscriptions.length}):
-      </p>
+      <p className="text-xs text-gray-500 mb-2">My subscriptions ({subscriptions.length}):</p>
       <ul className="space-y-2 max-h-[200px] overflow-y-auto">
         {subscriptions.map((subscription) => (
           <SubscriptionItem
@@ -56,10 +54,7 @@ interface SubscriptionItemProps {
   onUnsubscribe: (id: string) => Promise<void>;
 }
 
-function SubscriptionItem({
-  subscription,
-  onUnsubscribe,
-}: SubscriptionItemProps) {
+function SubscriptionItem({ subscription, onUnsubscribe }: SubscriptionItemProps) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await onUnsubscribe(subscription.id);
@@ -71,14 +66,8 @@ function SubscriptionItem({
 
   return (
     <li className="flex items-center gap-2 p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
-      <button
-        type="button"
-        onClick={handleClick}
-        className="flex-1 min-w-0 text-left"
-      >
-        <p className="text-xs font-medium text-gray-800 truncate">
-          {subscription.name}
-        </p>
+      <button type="button" onClick={handleClick} className="flex-1 min-w-0 text-left">
+        <p className="text-xs font-medium text-gray-800 truncate">{subscription.name}</p>
         <p className="text-[10px] text-gray-400 truncate">{subscription.url}</p>
       </button>
       <button
@@ -87,12 +76,7 @@ function SubscriptionItem({
         className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 transition-colors"
         title="Unsubscribe"
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <title>Delete</title>
           <path
             strokeLinecap="round"

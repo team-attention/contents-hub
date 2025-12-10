@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  type Subscription,
   createSubscription,
   deleteSubscription,
   getSubscriptionByUrl,
   getSubscriptions,
-  type Subscription,
 } from "../lib/subscriptions";
 
 interface SubscriptionsState {
@@ -39,28 +39,25 @@ export function useSubscriptions() {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
-  const subscribe = useCallback(
-    async (url: string, name: string) => {
-      setIsOperating(true);
-      try {
-        const newSubscription = await createSubscription(url, name);
-        setState((prev) => ({
-          ...prev,
-          subscriptions: [newSubscription, ...prev.subscriptions],
-        }));
-        return newSubscription;
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          error: error instanceof Error ? error : new Error("Unknown error"),
-        }));
-        throw error;
-      } finally {
-        setIsOperating(false);
-      }
-    },
-    []
-  );
+  const subscribe = useCallback(async (url: string, name: string) => {
+    setIsOperating(true);
+    try {
+      const newSubscription = await createSubscription(url, name);
+      setState((prev) => ({
+        ...prev,
+        subscriptions: [newSubscription, ...prev.subscriptions],
+      }));
+      return newSubscription;
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error : new Error("Unknown error"),
+      }));
+      throw error;
+    } finally {
+      setIsOperating(false);
+    }
+  }, []);
 
   const unsubscribe = useCallback(async (id: string) => {
     setIsOperating(true);
@@ -85,14 +82,14 @@ export function useSubscriptions() {
     (url: string) => {
       return state.subscriptions.some((s) => s.url === url);
     },
-    [state.subscriptions]
+    [state.subscriptions],
   );
 
   const getSubscriptionForUrl = useCallback(
     (url: string) => {
       return state.subscriptions.find((s) => s.url === url) || null;
     },
-    [state.subscriptions]
+    [state.subscriptions],
   );
 
   const checkSubscription = useCallback(async (url: string) => {
