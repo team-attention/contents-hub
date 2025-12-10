@@ -1,4 +1,4 @@
-import { ValidationPipe, type INestApplication, type Type } from "@nestjs/common";
+import { type INestApplication, type Type, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { sql } from "drizzle-orm";
 import { type PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
@@ -10,8 +10,9 @@ import type { TestDb } from "./global";
 
 // This is a workaround for the issue that pushSchema is not working in programmatic way.
 // REF: https://github.com/drizzle-team/drizzle-orm/discussions/4373#discussioncomment-12743792
-const { generateDrizzleJson, generateMigration } =
-  require("drizzle-kit/api") as typeof import("drizzle-kit/api");
+const { generateDrizzleJson, generateMigration } = require("drizzle-kit/api") as typeof import(
+  "drizzle-kit/api",
+);
 
 async function pushSchema(db: PostgresJsDatabase<typeof schema>) {
   const prevJson = generateDrizzleJson({});

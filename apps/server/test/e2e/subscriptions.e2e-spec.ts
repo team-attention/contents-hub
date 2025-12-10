@@ -1,7 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "../../src/app.module";
-import { env } from "../../src/env";
 import type { TestDb } from "../utils/global";
 import { cleanAndSetupTestData, createTestApp } from "../utils/helpers";
 
@@ -171,9 +170,7 @@ describe("Subscriptions (e2e)", () => {
 
   describe("DELETE /subscriptions/:id", () => {
     it("should return 401 without token", async () => {
-      await request(app.getHttpServer())
-        .delete("/subscriptions/some-id")
-        .expect(401);
+      await request(app.getHttpServer()).delete("/subscriptions/some-id").expect(401);
     });
 
     it("should return 404 for non-existent subscription", async () => {
