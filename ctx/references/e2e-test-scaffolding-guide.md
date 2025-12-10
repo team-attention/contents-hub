@@ -11,6 +11,7 @@ A comprehensive guide for setting up E2E tests with NestJS, Drizzle ORM, and Tes
 - [Running Tests](#running-tests)
 - [Checklist for New Projects](#checklist-for-new-projects)
 - [Troubleshooting](#troubleshooting)
+- [Common Pitfalls](#common-pitfalls)
 
 ---
 
@@ -22,7 +23,8 @@ A comprehensive guide for setting up E2E tests with NestJS, Drizzle ORM, and Tes
 ├─────────────────────────────────────────────────────────────┤
 │  1. Global Setup                                             │
 │     └─ Start PostgreSQL TestContainer                        │
-│     └─ Apply Drizzle schema                                  │
+│     └─ Apply Drizzle schema (via drizzle-kit API)            │
+│     └─ Validate schema was created                           │
 ├─────────────────────────────────────────────────────────────┤
 │  2. Test Files (Sequential with --runInBand)                 │
 │     ├─ beforeAll: Create NestJS app + DB connection          │
@@ -44,6 +46,7 @@ A comprehensive guide for setting up E2E tests with NestJS, Drizzle ORM, and Tes
 | **`--runInBand` required** | Single process execution for global variable sharing |
 | **DI-based mocking** | Leverages NestJS testing utilities, isolates external services |
 | **Env-based auth bypass** | Simple auth bypass via `MOCK_USER_ID` environment variable |
+| **drizzle-kit API for schema** | Auto-sync with schema.ts - no manual SQL maintenance |
 
 ---
 
@@ -83,7 +86,7 @@ module.exports = {
   rootDir: ".",
   testEnvironment: "node",
   testRegex: ".e2e-spec.ts$",
-  testTimeout: 10000,
+  testTimeout: 30000, // 30s recommended for container startup
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
@@ -102,8 +105,16 @@ module.exports = {
 ```bash
 APP_ENV=test
 DATABASE_URL=postgres://test:test@localhost:54328/postgres
-MOCK_USER_ID=test-user-id
+
+# IMPORTANT: MOCK_USER_ID must be a valid UUID if your user_id column is UUID type!
+# ❌ WRONG: MOCK_USER_ID=test-user-id
+# ✅ CORRECT:
+MOCK_USER_ID=00000000-0000-0000-0000-000000000001
+
 # Add other required environment variables...
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=test-anon-key
+SUPABASE_JWT_SECRET=test-jwt-secret
 ```
 
 ### 3. Environment Loading (`test/env-setup.ts`)
@@ -114,6 +125,7 @@ import * as path from "path";
 
 dotenv.config({
   path: path.resolve(__dirname, "../.env.test"),
+  override: true, // Ensure test env vars take precedence
 });
 ```
 
@@ -130,12 +142,14 @@ export type TestDb = PostgresJsDatabase<typeof schema>;
 export function setGlobalTestPostgresContainer(
   container: StartedPostgreSqlContainer
 ): void {
-  (globalThis as any).TEST_POSTGRES_CONTAINER = container;
+  (globalThis as Record<string, unknown>).TEST_POSTGRES_CONTAINER = container;
 }
 
 // Retrieve container
 export function getGlobalTestPostgresContainer(): StartedPostgreSqlContainer {
-  const container = (globalThis as any).TEST_POSTGRES_CONTAINER;
+  const container = (globalThis as Record<string, unknown>).TEST_POSTGRES_CONTAINER as
+    | StartedPostgreSqlContainer
+    | undefined;
   if (!container) {
     throw new Error("Test PostgreSQL container not initialized");
   }
@@ -144,96 +158,62 @@ export function getGlobalTestPostgresContainer(): StartedPostgreSqlContainer {
 
 // Cleanup container
 export async function clearGlobalTestDb(): Promise<void> {
-  const container = (globalThis as any).TEST_POSTGRES_CONTAINER;
+  const container = (globalThis as Record<string, unknown>).TEST_POSTGRES_CONTAINER as
+    | StartedPostgreSqlContainer
+    | undefined;
   if (container) {
     await container.stop();
-    (globalThis as any).TEST_POSTGRES_CONTAINER = undefined;
+    (globalThis as Record<string, unknown>).TEST_POSTGRES_CONTAINER = undefined;
   }
 }
 ```
 
-### 5. Global Setup (`test/jest-global-setup.ts`)
+### 5. Test Helpers (`test/utils/helpers.ts`)
+
+> **IMPORTANT**: Use `require()` for drizzle-kit/api to avoid TypeScript compilation issues.
 
 ```typescript
-import "./env-setup"; // Load env vars first!
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
-import postgres from "postgres";
-import * as schema from "@/db/schema";
-import { setGlobalTestPostgresContainer } from "./utils/global";
-
-// Push Drizzle schema programmatically
-async function pushSchema(db: ReturnType<typeof drizzle>) {
-  const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
-  const drizzleJson = generateDrizzleJson(schema);
-  const migration = await generateMigration(
-    { tables: {}, views: {}, enums: {}, schemas: {}, sequences: {}, roles: {}, policies: {}, _meta: { tables: {}, columns: {}, schemas: {} } },
-    drizzleJson
-  );
-
-  for (const statement of migration.statements) {
-    await db.execute(sql.raw(statement));
-  }
-}
-
-export default async function globalSetup() {
-  const databaseUrl = process.env.DATABASE_URL!;
-  const url = new URL(databaseUrl);
-
-  // Start TestContainer
-  const container = await new PostgreSqlContainer("postgres:15-alpine")
-    .withUsername(url.username)
-    .withPassword(url.password)
-    .withDatabase(url.pathname.slice(1))
-    .withExposedPorts({ container: 5432, host: parseInt(url.port) })
-    .withReuse() // Reuse container for faster local dev
-    .start();
-
-  setGlobalTestPostgresContainer(container);
-
-  // Connect and apply schema
-  const client = postgres(databaseUrl);
-  const db = drizzle(client, { schema });
-
-  // Install extensions
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-
-  // Apply schema
-  await pushSchema(db);
-
-  await client.end();
-}
-```
-
-### 6. Global Teardown (`test/jest-global-teardown.ts`)
-
-```typescript
-import { clearGlobalTestDb } from "./utils/global";
-
-export default async function globalTeardown() {
-  await clearGlobalTestDb();
-}
-```
-
-### 7. Test Helpers (`test/utils/helpers.ts`)
-
-```typescript
+import { ValidationPipe, type INestApplication, type Type } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { INestApplication, Type } from "@nestjs/common";
-import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
+import { type PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { PROVIDER_DB_CONNECTION } from "@/db/drizzle.module";
 import * as schema from "@/db/schema";
-import { PROVIDER_DB_CONNECTION } from "@/db/config";
-import { TestDb } from "./global";
+import { env } from "@/env";
+import type { TestDb } from "./global";
 
-// Create NestJS test app
+// IMPORTANT: Use require() instead of import() - this is a workaround for drizzle-kit API
+// REF: https://github.com/drizzle-team/drizzle-orm/discussions/4373#discussioncomment-12743792
+const { generateDrizzleJson, generateMigration } =
+  require("drizzle-kit/api") as typeof import("drizzle-kit/api");
+
+/**
+ * Push Drizzle schema to database programmatically.
+ * This auto-syncs with schema.ts - no manual SQL maintenance needed!
+ */
+async function pushSchema(db: PostgresJsDatabase<typeof schema>): Promise<void> {
+  const prevJson = generateDrizzleJson({});
+  // Pass prevJson.id to maintain consistency, use "snake_case" for column naming
+  const curJson = generateDrizzleJson(schema, prevJson.id, undefined, "snake_case");
+  const statements = await generateMigration(prevJson, curJson);
+
+  for (const statement of statements) {
+    await db.execute(statement);
+  }
+}
+
+/**
+ * Create NestJS test application with DB connection override.
+ * IMPORTANT: Includes ValidationPipe for DTO validation to work!
+ */
 export async function createTestApp(
-  moduleClass: Type
+  moduleClass: Type,
 ): Promise<{ app: INestApplication; db: TestDb }> {
-  const databaseUrl = process.env.DATABASE_URL!;
-  const client = postgres(databaseUrl);
+  const databaseUrl = env.DATABASE_URL;
+  const client = postgres(databaseUrl, {
+    onnotice: () => {}, // Suppress PostgreSQL NOTICE messages
+  });
   const db = drizzle(client, { schema });
 
   const moduleFixture = await Test.createTestingModule({
@@ -241,45 +221,103 @@ export async function createTestApp(
   })
     .overrideProvider(PROVIDER_DB_CONNECTION)
     .useValue(db)
-    // Add external service mocks as needed
+    // Add external service mocks as needed:
     // .overrideProvider(ExternalService)
     // .useClass(MockExternalService)
     .compile();
 
   const app = moduleFixture.createNestApplication();
+
+  // IMPORTANT: Add ValidationPipe for class-validator to work!
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
   await app.init();
 
   return { app, db };
 }
 
-// Reset DB between tests
+/**
+ * Reset database between tests for complete isolation.
+ * Drops and recreates the schema, then reapplies Drizzle schema.
+ */
 export async function cleanAndSetupTestData(db: TestDb): Promise<void> {
-  // Drop and recreate schema
-  await db.execute(sql`DROP SCHEMA IF EXISTS public CASCADE`);
-  await db.execute(sql`CREATE SCHEMA public`);
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  // If using custom schema (e.g., pgSchema("contents_hub")), drop that schema
+  // If using default public schema, drop public
+  await db.execute(sql`DROP SCHEMA IF EXISTS "contents_hub" CASCADE`);
+  // await db.execute(sql`DROP SCHEMA IF EXISTS public CASCADE`);
+  // await db.execute(sql`CREATE SCHEMA public`);
 
-  // Reapply Drizzle schema
+  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
   await pushSchema(db);
 }
 
-// Create test user (with auth bypass)
-export async function createTestUser(
-  db: TestDb,
-  email = "test@example.com"
-): Promise<{ userId: string }> {
-  const userId = globalThis.crypto.randomUUID();
+/**
+ * Validate that the schema was created correctly.
+ * Call this in globalSetup after pushSchema to catch setup issues early.
+ */
+export async function validateTestDb(db: TestDb): Promise<void> {
+  // Adjust schema name based on your pgSchema() configuration
+  const tables = await db.execute<{ count: number }>(
+    sql`SELECT COUNT(*)::int AS count FROM pg_tables WHERE schemaname = 'contents_hub'`,
+  );
+  if (tables[0].count === 0) {
+    throw new Error("No tables found in the contents_hub schema - schema push may have failed");
+  }
+}
 
-  // Set env var for auth bypass
-  process.env.MOCK_USER_ID = userId;
+export { pushSchema };
+```
 
-  // Insert test user
-  await db.insert(schema.users).values({
-    id: userId,
-    email,
+### 6. Global Setup (`test/jest-global-setup.ts`)
+
+```typescript
+import "./env-setup"; // Load env vars first!
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "@/db/schema";
+import { env } from "@/env";
+import { setGlobalTestPostgresContainer } from "./utils/global";
+import { cleanAndSetupTestData, validateTestDb } from "./utils/helpers";
+
+export default async function globalSetup() {
+  const databaseUrl = env.DATABASE_URL;
+  const url = new URL(databaseUrl);
+
+  // Start TestContainer
+  const container = await new PostgreSqlContainer("postgres:15-alpine")
+    .withUsername(url.username)
+    .withPassword(url.password)
+    .withDatabase(url.pathname.slice(1))
+    .withExposedPorts({ container: 5432, host: Number.parseInt(url.port) })
+    .withReuse() // Reuse container for faster local dev
+    .start();
+
+  setGlobalTestPostgresContainer(container);
+
+  // Connect and apply schema
+  const client = postgres(databaseUrl, {
+    onnotice: () => {}, // Suppress NOTICE messages
   });
+  const db = drizzle(client, { schema, logger: false });
 
-  return { userId };
+  // Apply Drizzle schema
+  await cleanAndSetupTestData(db);
+
+  // Validate schema was created - fail fast if setup is broken
+  await validateTestDb(db);
+
+  await client.end();
+}
+```
+
+### 7. Global Teardown (`test/jest-global-teardown.ts`)
+
+```typescript
+import { clearGlobalTestDb } from "./utils/global";
+
+export default async function globalTeardown() {
+  await clearGlobalTestDb();
 }
 ```
 
@@ -323,28 +361,18 @@ export class MockNotificationService {
 ### Basic E2E Test Structure
 
 ```typescript
+import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
-import { INestApplication } from "@nestjs/common";
 import { AppModule } from "@/app.module";
-import {
-  createTestApp,
-  cleanAndSetupTestData,
-  createTestUser,
-} from "../utils/helpers";
-import { TestDb } from "../utils/global";
+import type { TestDb } from "../utils/global";
+import { cleanAndSetupTestData, createTestApp } from "../utils/helpers";
 
 describe("Feature Name (e2e)", () => {
   let app: INestApplication;
   let db: TestDb;
-  let testUserId: string;
 
   beforeAll(async () => {
     ({ app, db } = await createTestApp(AppModule));
-  });
-
-  beforeEach(async () => {
-    const { userId } = await createTestUser(db);
-    testUserId = userId;
   });
 
   afterEach(async () => {
@@ -356,31 +384,17 @@ describe("Feature Name (e2e)", () => {
   });
 
   describe("GET /resources", () => {
+    it("should return 401 without token", async () => {
+      await request(app.getHttpServer()).get("/resources").expect(401);
+    });
+
     it("should return empty list initially", async () => {
       const response = await request(app.getHttpServer())
         .get("/resources")
-        .set("Authorization", "Bearer dummy-token")
+        .set("Authorization", "Bearer any-token")
         .expect(200);
 
       expect(response.body.items).toEqual([]);
-    });
-
-    it("should return created resources", async () => {
-      // Given: Insert test data directly
-      await db.insert(schema.resources).values({
-        userId: testUserId,
-        name: "Test Resource",
-      });
-
-      // When
-      const response = await request(app.getHttpServer())
-        .get("/resources")
-        .set("Authorization", "Bearer dummy-token")
-        .expect(200);
-
-      // Then
-      expect(response.body.items).toHaveLength(1);
-      expect(response.body.items[0].name).toBe("Test Resource");
     });
   });
 
@@ -388,115 +402,63 @@ describe("Feature Name (e2e)", () => {
     it("should create a new resource", async () => {
       const response = await request(app.getHttpServer())
         .post("/resources")
-        .set("Authorization", "Bearer dummy-token")
-        .send({ name: "New Resource" })
+        .set("Authorization", "Bearer any-token")
+        .send({ name: "New Resource", url: "https://example.com" })
         .expect(201);
 
       expect(response.body.name).toBe("New Resource");
+      expect(response.body).toHaveProperty("id");
+    });
 
-      // Verify in DB
-      const resources = await db.query.resources.findMany({
-        where: eq(schema.resources.userId, testUserId),
-      });
-      expect(resources).toHaveLength(1);
+    it("should return 400 for invalid input", async () => {
+      await request(app.getHttpServer())
+        .post("/resources")
+        .set("Authorization", "Bearer any-token")
+        .send({ name: "" }) // Invalid
+        .expect(400);
     });
   });
 });
 ```
 
-### Domain-Specific Helper Pattern
+### Auth Bypass Pattern (Using Passport Strategy)
 
 ```typescript
-// test/e2e/orders/helper.ts
-import { TestDb } from "../../utils/global";
-import * as schema from "@/db/schema";
+// src/auth/strategies/mock.strategy.ts
+import { Injectable } from "@nestjs/common";
+import { PassportStrategy } from "@nestjs/passport";
+import { Strategy } from "passport-http-bearer";
+import { env } from "@/env";
 
-export async function createTestProduct(
-  db: TestDb,
-  overrides: Partial<typeof schema.products.$inferInsert> = {}
-): Promise<string> {
-  const productId = globalThis.crypto.randomUUID();
+export const MOCK_STRATEGY = "mock";
 
-  await db.insert(schema.products).values({
-    id: productId,
-    name: "Test Product",
-    price: 1000,
-    ...overrides,
-  });
-
-  return productId;
-}
-
-export async function createTestOrder(
-  db: TestDb,
-  userId: string,
-  productId: string
-): Promise<string> {
-  const orderId = globalThis.crypto.randomUUID();
-
-  await db.insert(schema.orders).values({
-    id: orderId,
-    userId,
-    productId,
-    status: "pending",
-  });
-
-  return orderId;
-}
-```
-
-### External API Mocking Pattern
-
-```typescript
-describe("Webhook handling (e2e)", () => {
-  let validateSpy: jest.SpyInstance;
-
-  beforeEach(async () => {
-    // Spy on external service method
-    validateSpy = jest
-      .spyOn(ExternalClient.prototype, "validateSignature")
-      .mockResolvedValue(true);
-  });
-
-  afterEach(async () => {
-    validateSpy.mockRestore();
-  });
-
-  it("should process valid webhook", async () => {
-    const webhookPayload = {
-      event: "payment.completed",
-      data: { id: "payment-123" },
-    };
-
-    await request(app.getHttpServer())
-      .post("/webhooks/external")
-      .set("X-Signature", "test-signature")
-      .send(webhookPayload)
-      .expect(200);
-
-    expect(validateSpy).toHaveBeenCalledWith("test-signature", webhookPayload);
-  });
-});
-```
-
-### Auth Bypass Pattern
-
-In your auth guard, add a bypass for test environment:
-
-```typescript
-// src/guards/auth.guard.ts
 @Injectable()
-export class AuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    // Bypass for tests
-    if (process.env.MOCK_USER_ID) {
-      const request = context.switchToHttp().getRequest();
-      request.user = { id: process.env.MOCK_USER_ID };
-      return true;
-    }
-
-    // Normal auth logic...
+export class MockStrategy extends PassportStrategy(Strategy, MOCK_STRATEGY) {
+  async validate(_token: string): Promise<{ id: string; email: string }> {
+    return {
+      id: env.MOCK_USER_ID ?? "mock-user-id",
+      email: "mock@example.com",
+    };
   }
+}
+```
+
+```typescript
+// src/auth/decorators/auth.decorator.ts
+import { UseGuards, applyDecorators } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { appEnv, env } from "@/env";
+import { MOCK_STRATEGY } from "../strategies/mock.strategy";
+import { SUPABASE_STRATEGY } from "../strategies/supabase.strategy";
+
+export function Auth() {
+  // Use mock strategy in test/development when MOCK_USER_ID is set
+  const strategy =
+    (appEnv.isDevelopment || appEnv.isTest) && env.MOCK_USER_ID
+      ? MOCK_STRATEGY
+      : SUPABASE_STRATEGY;
+
+  return applyDecorators(UseGuards(AuthGuard(strategy)));
 }
 ```
 
@@ -510,8 +472,8 @@ export class AuthGuard implements CanActivate {
 {
   "scripts": {
     "test": "jest",
-    "test:e2e": "APP_ENV=ci jest --config ./jest-e2e.config.js --runInBand",
-    "test:e2e:watch": "APP_ENV=ci jest --config ./jest-e2e.config.js --runInBand --watch"
+    "test:e2e": "APP_ENV=test jest --config ./jest-e2e.config.js --runInBand",
+    "test:e2e:watch": "APP_ENV=test jest --config ./jest-e2e.config.js --runInBand --watch"
   }
 }
 ```
@@ -523,7 +485,7 @@ export class AuthGuard implements CanActivate {
 pnpm test:e2e
 
 # Run specific test file
-pnpm test:e2e -- orders.e2e-spec.ts
+pnpm test:e2e -- subscriptions.e2e-spec.ts
 
 # Watch mode
 pnpm test:e2e:watch
@@ -537,12 +499,12 @@ pnpm test:e2e:watch
 {
   "devDependencies": {
     "@nestjs/testing": "^10.x",
-    "@testcontainers/postgresql": "^10.x",
-    "testcontainers": "^10.x",
+    "@testcontainers/postgresql": "^11.x",
+    "testcontainers": "^11.x",
     "jest": "^29.x",
     "ts-jest": "^29.x",
-    "supertest": "^6.x",
-    "@types/supertest": "^2.x"
+    "supertest": "^7.x",
+    "@types/supertest": "^6.x"
   }
 }
 ```
@@ -551,17 +513,30 @@ pnpm test:e2e:watch
 
 ## Checklist for New Projects
 
+### Initial Setup
 - [ ] Install dependencies (`@testcontainers/postgresql`, `testcontainers`, `supertest`)
-- [ ] Create `jest-e2e.config.js`
-- [ ] Create `.env.test` (specify DATABASE_URL with fixed port)
-- [ ] Create `test/env-setup.ts`
+- [ ] Create `jest-e2e.config.js` with `testTimeout: 30000`
+- [ ] Create `.env.test` with **valid UUID** for `MOCK_USER_ID`
+- [ ] Create `test/env-setup.ts` with `override: true`
 - [ ] Create `test/utils/global.ts`
-- [ ] Create `test/utils/helpers.ts` (adapt to your project)
-- [ ] Create `test/utils/mock.ts` (for external services)
-- [ ] Create `test/jest-global-setup.ts`
+- [ ] Create `test/utils/helpers.ts` with:
+  - [ ] `require("drizzle-kit/api")` (NOT `import`)
+  - [ ] `ValidationPipe` in `createTestApp`
+  - [ ] `onnotice: () => {}` to suppress PostgreSQL notices
+  - [ ] `validateTestDb` function
+- [ ] Create `test/jest-global-setup.ts` with `validateTestDb` call
 - [ ] Create `test/jest-global-teardown.ts`
-- [ ] Add `test:e2e` script to `package.json` (`--runInBand` is required!)
-- [ ] Add `MOCK_USER_ID` bypass logic to auth guard (optional)
+- [ ] Add `test:e2e` script to `package.json` (`--runInBand` required!)
+
+### Auth Setup
+- [ ] Create mock auth strategy (e.g., `MockStrategy`)
+- [ ] Add conditional strategy selection in `Auth()` decorator
+- [ ] Ensure `MOCK_USER_ID` is valid UUID format if DB uses UUID type
+
+### Schema Setup
+- [ ] Identify your schema name (e.g., `contents_hub`, `public`)
+- [ ] Update `cleanAndSetupTestData` to drop correct schema
+- [ ] Update `validateTestDb` to check correct schema
 
 ---
 
@@ -571,9 +546,17 @@ pnpm test:e2e:watch
 - Verify `--runInBand` flag is present in test command
 - Check that `jest-global-setup.ts` is correctly configured in Jest config
 
+### "invalid input syntax for type uuid"
+- **Cause**: `MOCK_USER_ID` is set to a non-UUID string like `test-user-id`
+- **Fix**: Use valid UUID format: `MOCK_USER_ID=00000000-0000-0000-0000-000000000001`
+
+### "relation does not exist" after schema drop
+- **Cause**: `cleanAndSetupTestData` drops schema but `pushSchema` fails silently
+- **Fix**: Add `validateTestDb()` call after `pushSchema()` to catch failures early
+
 ### Data leaking between tests
 - Ensure `cleanAndSetupTestData` is called in `afterEach`
-- Verify schema drop/recreate logic works correctly
+- Verify schema drop/recreate logic uses correct schema name
 
 ### Container fails to start
 - Check Docker is running
@@ -581,5 +564,88 @@ pnpm test:e2e:watch
 - When using `withReuse()`, may need to manually clean up old containers
 
 ### Timeout errors
-- Increase `testTimeout` value (default 10 seconds)
+- Increase `testTimeout` value (30000ms recommended)
 - First run may take longer due to image download
+
+### ValidationPipe not working (400 errors not returned)
+- **Cause**: `ValidationPipe` not added to test app
+- **Fix**: Add `app.useGlobalPipes(new ValidationPipe(...))` in `createTestApp`
+
+### PostgreSQL NOTICE messages cluttering output
+- Add `onnotice: () => {}` to postgres client options
+
+---
+
+## Common Pitfalls
+
+### 1. drizzle-kit API Import Issue
+
+**Problem**: TypeScript errors when using `await import("drizzle-kit/api")`
+
+**Solution**: Use CommonJS `require()` with type assertion:
+```typescript
+// ❌ WRONG - causes TypeScript errors
+const { generateDrizzleJson, generateMigration } = await import("drizzle-kit/api");
+
+// ✅ CORRECT - workaround
+const { generateDrizzleJson, generateMigration } =
+  require("drizzle-kit/api") as typeof import("drizzle-kit/api");
+```
+
+### 2. generateDrizzleJson Parameters
+
+**Problem**: Schema not generated correctly
+
+**Solution**: Pass correct parameters:
+```typescript
+const prevJson = generateDrizzleJson({});
+// Pass prevJson.id as second param, undefined as third, "snake_case" as fourth
+const curJson = generateDrizzleJson(schema, prevJson.id, undefined, "snake_case");
+const statements = await generateMigration(prevJson, curJson);
+
+// Note: statements is an array directly, NOT statements.statements
+for (const statement of statements) {
+  await db.execute(statement);
+}
+```
+
+### 3. Custom Schema (pgSchema) Handling
+
+**Problem**: Using `pgSchema("my_schema")` but dropping `public` schema
+
+**Solution**: Drop the correct schema:
+```typescript
+// If your schema.ts uses: export const mySchema = pgSchema("contents_hub");
+await db.execute(sql`DROP SCHEMA IF EXISTS "contents_hub" CASCADE`);
+
+// NOT:
+// await db.execute(sql`DROP SCHEMA IF EXISTS public CASCADE`);
+```
+
+### 4. Null Response Serialization
+
+**Problem**: Service returns `null` but test expects `null`, gets `{}`
+
+**Solution**: NestJS may serialize `null` as empty object. Adjust test:
+```typescript
+// ❌ May fail
+expect(response.body).toBeNull();
+
+// ✅ More robust
+expect(response.body.id).toBeUndefined();
+// or check for empty object
+expect(Object.keys(response.body).length).toBe(0);
+```
+
+### 5. UUID vs String for MOCK_USER_ID
+
+**Problem**: `invalid input syntax for type uuid: "test-user-id"`
+
+**Solution**: If your `user_id` column is UUID type, `MOCK_USER_ID` must be valid UUID:
+```bash
+# ❌ WRONG
+MOCK_USER_ID=test-user-id
+
+# ✅ CORRECT
+MOCK_USER_ID=00000000-0000-0000-0000-000000000001
+```

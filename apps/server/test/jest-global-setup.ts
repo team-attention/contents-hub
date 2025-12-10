@@ -1,12 +1,11 @@
 import "./env-setup";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../src/db/schema";
 import { env } from "../src/env";
 import { setGlobalTestPostgresContainer } from "./utils/global";
-import { applySchema } from "./utils/helpers";
+import { cleanAndSetupTestData, validateTestDb } from "./utils/helpers";
 
 export default async function globalSetup() {
   const databaseUrl = env.DATABASE_URL;
@@ -22,11 +21,16 @@ export default async function globalSetup() {
 
   setGlobalTestPostgresContainer(container);
 
-  const client = postgres(databaseUrl);
-  const db = drizzle(client, { schema });
+  const client = postgres(databaseUrl, {
+    onnotice: () => {}, // Suppress notices
+  });
+  const db = drizzle(client, { schema, logger: false });
 
-  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-  await applySchema(db);
+  // Push schema to db
+  await cleanAndSetupTestData(db);
+
+  // Validate schema was created
+  await validateTestDb(db);
 
   await client.end();
 }
