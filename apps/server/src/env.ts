@@ -39,3 +39,9 @@ export const appEnv = {
   isProduction: env.APP_ENV === "production",
   isTest: env.APP_ENV === "test",
 };
+
+export const publicEnv = z
+  .object({
+    DATABASE_SSL_CA_PATH: z.string().optional(),
+  })
+  .parse(process.env);

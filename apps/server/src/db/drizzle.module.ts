@@ -2,18 +2,20 @@ import { Module } from "@nestjs/common";
 import { PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { appEnv, env } from "../env";
+import { PROVIDER_DB_CONNECTION, getDBCredentials } from "./config";
 import * as schema from "./schema";
 
-export const PROVIDER_DB_CONNECTION = "DB_CONNECTION";
-
 export type DbConnection = PostgresJsDatabase<typeof schema>;
+
+export { PROVIDER_DB_CONNECTION };
 
 @Module({
   providers: [
     {
       provide: PROVIDER_DB_CONNECTION,
       useFactory: async (): Promise<DbConnection> => {
-        const client = postgres(env.DATABASE_URL, {
+        // @ts-expect-error TODO: Fix
+        const client = postgres(getDBCredentials(env.DATABASE_URL), {
           max: appEnv.isProduction ? 20 : 10,
           // min: appEnv.isProduction ? 5 : 1,
           idle_timeout: 20,

@@ -1,10 +1,15 @@
 import { sql } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+/**
+ * contents_hub schema - isolates this project's tables from other projects
+ */
+export const contentsHubSchema = pgSchema("contents_hub");
 
 /**
  * Subscriptions table - tracks user subscriptions to websites
  */
-export const subscriptions = pgTable("subscriptions", {
+export const subscriptions = contentsHubSchema.table("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url").notNull(),
   name: text("name").notNull(),
@@ -22,7 +27,7 @@ export const subscriptions = pgTable("subscriptions", {
 /**
  * Content history table - stores content snapshots for diff detection
  */
-export const contentHistory = pgTable("content_history", {
+export const contentHistory = contentsHubSchema.table("content_history", {
   id: uuid("id").primaryKey().defaultRandom(),
   subscriptionId: uuid("subscription_id")
     .notNull()
