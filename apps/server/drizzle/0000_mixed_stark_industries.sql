@@ -1,4 +1,4 @@
-CREATE SCHEMA "contents_hub";
+-- CREATE SCHEMA "contents_hub";
 --> statement-breakpoint
 CREATE TABLE "contents_hub"."content_history" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -10,6 +10,7 @@ CREATE TABLE "contents_hub"."content_history" (
 --> statement-breakpoint
 CREATE TABLE "contents_hub"."subscriptions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
 	"url" text NOT NULL,
 	"name" text NOT NULL,
 	"status" text DEFAULT 'active' NOT NULL,

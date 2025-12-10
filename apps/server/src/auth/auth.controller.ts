@@ -1,12 +1,17 @@
 import { Controller, Get } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthUser, User, UserId } from "../common/decorators/user.decorator";
 import { Auth } from "./decorators/auth.decorator";
+import { GetMeResponseDto, GetMyIdResponseDto } from "./dto/auth-response.dto";
 
 @Controller("auth")
+@ApiTags("auth")
+@ApiBearerAuth()
 export class AuthController {
   @Auth()
   @Get("me")
-  getMe(@User() user: AuthUser) {
+  @ApiOperation({ summary: "Get current user info" })
+  getMe(@User() user: AuthUser): GetMeResponseDto {
     return {
       id: user.id,
       email: user.email,
@@ -15,7 +20,8 @@ export class AuthController {
 
   @Auth()
   @Get("me/id")
-  getMyId(@UserId() userId: string) {
+  @ApiOperation({ summary: "Get current user ID" })
+  getMyId(@UserId() userId: string): GetMyIdResponseDto {
     return { userId };
   }
 }

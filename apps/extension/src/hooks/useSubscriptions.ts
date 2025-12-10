@@ -1,113 +1,81 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import {
-  type Subscription,
-  createSubscription,
-  deleteSubscription,
-  getSubscriptionByUrl,
-  getSubscriptions,
-} from "../lib/subscriptions";
-
-interface SubscriptionsState {
-  subscriptions: Subscription[];
-  isLoading: boolean;
-  error: Error | null;
-}
+  findByUrlSubscription,
+  getFindAllSubscriptionQueryKey,
+  useCreateSubscription,
+  useFindAllSubscription,
+  useRemoveSubscription,
+} from "../lib/api/__generated__/api";
 
 export function useSubscriptions() {
-  const [state, setState] = useState<SubscriptionsState>({
-    subscriptions: [],
-    isLoading: true,
-    error: null,
-  });
-  const [isOperating, setIsOperating] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchSubscriptions = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-    try {
-      const subscriptions = await getSubscriptions();
-      setState({ subscriptions, isLoading: false, error: null });
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error : new Error("Unknown error"),
-      }));
-    }
-  }, []);
+  const { data, isLoading, error: queryError } = useFindAllSubscription();
 
-  useEffect(() => {
-    fetchSubscriptions();
-  }, [fetchSubscriptions]);
+  const createMutation = useCreateSubscription();
+  const removeMutation = useRemoveSubscription();
 
-  const subscribe = useCallback(async (url: string, name: string) => {
-    setIsOperating(true);
-    try {
-      const newSubscription = await createSubscription(url, name);
-      setState((prev) => ({
-        ...prev,
-        subscriptions: [newSubscription, ...prev.subscriptions],
-      }));
-      return newSubscription;
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error : new Error("Unknown error"),
-      }));
-      throw error;
-    } finally {
-      setIsOperating(false);
-    }
-  }, []);
+  const subscriptions = data?.data.items ?? [];
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError
+      : new Error("Unknown error")
+    : null;
+  const isOperating = createMutation.isPending || removeMutation.isPending;
 
-  const unsubscribe = useCallback(async (id: string) => {
-    setIsOperating(true);
-    try {
-      await deleteSubscription(id);
-      setState((prev) => ({
-        ...prev,
-        subscriptions: prev.subscriptions.filter((s) => s.id !== id),
-      }));
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error : new Error("Unknown error"),
-      }));
-      throw error;
-    } finally {
-      setIsOperating(false);
-    }
-  }, []);
+  const subscribe = useCallback(
+    async (url: string, name: string) => {
+      const response = await createMutation.mutateAsync({
+        data: { url, name, checkInterval: 60 },
+      });
+      queryClient.invalidateQueries({ queryKey: getFindAllSubscriptionQueryKey() });
+      return response.data;
+    },
+    [createMutation, queryClient],
+  );
+
+  const unsubscribe = useCallback(
+    async (id: string) => {
+      await removeMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getFindAllSubscriptionQueryKey() });
+    },
+    [removeMutation, queryClient],
+  );
 
   const isSubscribed = useCallback(
-    (url: string) => {
-      return state.subscriptions.some((s) => s.url === url);
-    },
-    [state.subscriptions],
+    (url: string) => subscriptions.some((s) => s.url === url),
+    [subscriptions],
   );
 
   const getSubscriptionForUrl = useCallback(
-    (url: string) => {
-      return state.subscriptions.find((s) => s.url === url) || null;
-    },
-    [state.subscriptions],
+    (url: string) => subscriptions.find((s) => s.url === url) ?? null,
+    [subscriptions],
   );
 
   const checkSubscription = useCallback(async (url: string) => {
     try {
-      return await getSubscriptionByUrl(url);
+      const response = await findByUrlSubscription({ url });
+      return response.data;
     } catch {
       return null;
     }
   }, []);
 
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getFindAllSubscriptionQueryKey() });
+  }, [queryClient]);
+
   return {
-    ...state,
+    subscriptions,
+    isLoading,
+    error,
     isOperating,
     subscribe,
     unsubscribe,
     isSubscribed,
     getSubscriptionForUrl,
     checkSubscription,
-    refresh: fetchSubscriptions,
+    refresh,
   };
 }

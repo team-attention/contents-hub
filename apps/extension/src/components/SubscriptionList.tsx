@@ -1,4 +1,4 @@
-import type { Subscription } from "../lib/subscriptions";
+import type { SubscriptionResponseDto as Subscription } from "../lib/api/__generated__/models";
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];

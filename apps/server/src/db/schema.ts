@@ -11,6 +11,7 @@ export const contentsHubSchema = pgSchema("contents_hub");
  */
 export const subscriptions = contentsHubSchema.table("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
   url: text("url").notNull(),
   name: text("name").notNull(),
   status: text("status").notNull().default("active"),
