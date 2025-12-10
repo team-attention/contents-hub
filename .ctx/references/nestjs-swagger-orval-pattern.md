@@ -1,69 +1,234 @@
 # NestJS Swagger + Orval Pattern
 
-This document describes the improved pattern for generating type-safe API clients from NestJS Swagger documentation using Orval.
+This document describes the pattern for generating type-safe API clients from NestJS Swagger documentation using Orval in a pnpm monorepo.
 
 ## Overview
 
-This pattern uses Orval to automatically generate React Query hooks and TypeScript types from NestJS Swagger documentation, with custom naming conventions and filtering to produce clean, domain-focused API clients.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          FLOW                                   │
+└─────────────────────────────────────────────────────────────────┘
 
-## Key Improvements
+ NestJS Server                    Orval                    React Client
+ ┌────────────────┐              ┌─────────────┐          ┌────────────────┐
+ │ Controllers    │              │             │          │ Generated      │
+ │ + @ApiTags     │ ──generates──▶ swagger.json ──reads──▶│ React Query    │
+ │ + @ApiProperty │              │             │          │ Hooks + Types  │
+ │ + DTOs         │              └─────────────┘          └────────────────┘
+ └────────────────┘                                             │
+                                                                ▼
+                                                         ┌────────────────┐
+                                                         │ Custom Mutator │
+                                                         │ - Auth Token   │
+                                                         │ - Error Handle │
+                                                         └────────────────┘
+```
 
-### 1. Tag Filtering
+**Benefits:**
+- **Single Source of Truth**: Swagger spec is the only API definition
+- **Type Safety**: Server DTOs automatically sync with client types
+- **Better DX**: IDE autocomplete and refactoring support
+- **Easy Maintenance**: Client auto-updates when API changes
 
-Exclude admin and system endpoints from client generation using regex filters:
+---
 
-```typescript
-filters: {
-  tags: [/^(?!.*system|admin).*$/]
+## Project Structure
+
+```
+contents-hub/
+├── package.json              # Root scripts: generate, generate:swagger, generate:api
+├── apps/
+│   ├── server/
+│   │   ├── nest-cli.json     # Swagger plugin config
+│   │   ├── scripts/
+│   │   │   └── generate-swagger-docs.ts  # Standalone swagger generation
+│   │   ├── __generated__/
+│   │   │   └── swagger.json  # Generated swagger spec (gitignored)
+│   │   └── src/
+│   │       └── *.controller.ts, *.dto.ts
+│   └── extension/
+│       ├── orval.config.ts   # Orval configuration
+│       └── src/lib/api/
+│           ├── client.ts     # Custom HTTP client (mutator)
+│           └── __generated__/ # Generated hooks/types (gitignored)
+```
+
+---
+
+## Server Setup (NestJS)
+
+### 1. Install Dependencies
+
+```bash
+pnpm --filter @contents-hub/server add @nestjs/swagger class-validator class-transformer
+```
+
+### 2. Configure nest-cli.json
+
+```json
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "classValidatorShim": true,
+          "introspectComments": true,
+          "dtoFileNameSuffix": [".dto.ts", ".entity.ts"],
+          "controllerFileNameSuffix": [".controller.ts"]
+        }
+      }
+    ]
+  }
 }
 ```
 
-This ensures only public-facing API endpoints are included in the generated client.
+### 3. Swagger Generation Script
 
-### 2. Custom Operation Naming
-
-Remove controller prefixes and add domain suffixes based on tags for cleaner function names:
+Create `apps/server/scripts/generate-swagger-docs.ts`:
 
 ```typescript
-operationName: (operation) => {
-  const originalName = operation.operationId ?? "";
-  const action = originalName.replace(/.*Controller_/gi, "");
+// Set dummy env vars for swagger generation (no actual DB connection needed)
+// These must be set BEFORE any imports that trigger env validation
+process.env.APP_ENV ??= "development";
+process.env.DATABASE_URL ??= "postgresql://dummy:dummy@localhost:5432/dummy";
+process.env.SUPABASE_URL ??= "http://localhost:54321";
+process.env.SUPABASE_ANON_KEY ??= "dummy";
+process.env.SUPABASE_JWT_SECRET ??= "dummy";
+process.env.ANTHROPIC_API_KEY ??= "dummy";
+// Add any other required env vars for your project
 
-  // Extract domain name from tags (uses first tag)
-  const tag = operation.tags?.[0];
-  if (!tag) return action;
+import { mkdirSync, writeFileSync } from "node:fs";
+import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { AppModule } from "../src/app.module";
 
-  // Convert to singular PascalCase: subscriptions → Subscription
-  const domain = tag.endsWith("s")
-    ? tag.slice(0, -1).charAt(0).toUpperCase() + tag.slice(1, -1)
-    : tag.charAt(0).toUpperCase() + tag.slice(1);
+async function generateSwaggerDocs() {
+  const app = await NestFactory.create(AppModule, { logger: false });
 
-  // Handle reserved words: delete → remove
-  if (action === "delete") return `remove${domain}`;
-  return `${action}${domain}`;
+  const config = new DocumentBuilder()
+    .setTitle("Contents Hub API")
+    .setDescription("API documentation for Contents Hub")
+    .setVersion("1.0")
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+
+  mkdirSync("__generated__", { recursive: true });
+  writeFileSync("__generated__/swagger.json", JSON.stringify(document, null, 2));
+
+  console.log("Swagger docs generated at __generated__/swagger.json");
+
+  await app.close();
+  process.exit(0);
+}
+
+generateSwaggerDocs();
+```
+
+**Why dummy env vars?**
+- Swagger generation only extracts OpenAPI spec from decorators
+- No actual DB connection or API calls needed
+- Using `??=` ensures real env vars aren't overwritten if they exist
+- This allows CI to run without secrets
+
+### 4. Server package.json Scripts
+
+```json
+{
+  "scripts": {
+    "generate:swagger": "ts-node -r tsconfig-paths/register scripts/generate-swagger-docs.ts"
+  }
 }
 ```
 
-**Results:**
-- `SubscriptionsController_create` → `createSubscription`
-- `SubscriptionsController_findAll` → `findAllSubscription`
-- `SubscriptionsController_findOne` → `findOneSubscription`
-- `SubscriptionsController_update` → `updateSubscription`
-- `SubscriptionsController_delete` → `removeSubscription`
-
-### 3. Disable Infinite Queries
-
-Explicitly disable infinite query generation to keep the API surface simple:
+### 5. Controller Decorators
 
 ```typescript
-query: {
-  useQuery: true,
-  useInfinite: false,
-  // ... other options
+import { Controller, Get, Post, Delete, Body, Param, Query } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
+
+@Controller("subscriptions")
+@ApiTags("subscriptions")
+@ApiBearerAuth()
+export class SubscriptionsController {
+  @Get()
+  @ApiOperation({ summary: "Get all subscriptions" })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "offset", required: false, type: Number })
+  @ApiResponse({ status: 200, type: SubscriptionListResponseDto })
+  findAll(@Query("limit") limit?: number, @Query("offset") offset?: number) {}
+
+  @Post()
+  @ApiOperation({ summary: "Create a subscription" })
+  @ApiResponse({ status: 201, type: SubscriptionResponseDto })
+  create(@Body() dto: CreateSubscriptionDto) {}
+
+  @Delete(":id")
+  @ApiOperation({ summary: "Delete a subscription" })
+  @ApiResponse({ status: 204 })
+  remove(@Param("id") id: string) {}
 }
 ```
 
-## Complete Configuration Example
+### 6. DTO Patterns
+
+**Response DTO:**
+```typescript
+import { ApiProperty } from "@nestjs/swagger";
+
+export class SubscriptionResponseDto {
+  @ApiProperty({ example: "550e8400-e29b-41d4-a716-446655440000" })
+  id: string;
+
+  @ApiProperty({ example: "https://example.com/feed.xml" })
+  feedUrl: string;
+
+  @ApiProperty({ example: "2024-01-01T00:00:00.000Z" })
+  createdAt: string;
+}
+
+export class SubscriptionListResponseDto {
+  @ApiProperty({ type: [SubscriptionResponseDto] })
+  items: SubscriptionResponseDto[];
+}
+```
+
+**Request DTO:**
+```typescript
+import { ApiProperty } from "@nestjs/swagger";
+import { IsUrl, IsOptional, IsArray, IsString } from "class-validator";
+
+export class CreateSubscriptionDto {
+  @ApiProperty({ example: "https://example.com/feed.xml" })
+  @IsUrl()
+  feedUrl: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+}
+```
+
+---
+
+## Client Setup (Orval)
+
+### 1. Install Dependencies
+
+```bash
+pnpm --filter @contents-hub/extension add -D orval
+pnpm --filter @contents-hub/extension add @tanstack/react-query
+```
+
+### 2. Create orval.config.ts
 
 ```typescript
 import { defineConfig } from "orval";
@@ -71,34 +236,30 @@ import { defineConfig } from "orval";
 export default defineConfig({
   api: {
     input: {
-      target: "http://localhost:3000/api-json",
+      target: "../server/__generated__/swagger.json",
       filters: {
-        tags: [/^(?!.*system|admin).*$/],
+        tags: [/^(?!.*system|admin).*$/], // Exclude admin/system endpoints
       },
     },
     output: {
-      mode: "tags-split",
-      target: "./src/lib/api/endpoints",
-      schemas: "./src/lib/api/model",
+      target: "./src/lib/api/__generated__/api.ts",
+      schemas: "./src/lib/api/__generated__/models",
       client: "react-query",
+      httpClient: "fetch",
       override: {
         mutator: {
           path: "./src/lib/api/client.ts",
-          name: "customInstance",
+          name: "apiClient",
         },
         query: {
           useQuery: true,
+          useSuspenseQuery: true,
           useInfinite: false,
-          options: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-          },
         },
         operationName: (operation) => {
           const originalName = operation.operationId ?? "";
           const action = originalName.replace(/.*Controller_/gi, "");
 
-          // Extract domain name from tags (uses first tag)
           const tag = operation.tags?.[0];
           if (!tag) return action;
 
@@ -112,164 +273,244 @@ export default defineConfig({
           return `${action}${domain}`;
         },
       },
+      biome: true,
     },
   },
 });
 ```
 
-## NestJS Backend Requirements
+**Operation Naming Results:**
+- `SubscriptionsController_create` → `createSubscription`
+- `SubscriptionsController_findAll` → `findAllSubscription`
+- `SubscriptionsController_delete` → `removeSubscription`
 
-### 1. Controller Tags
+### 3. Custom HTTP Client (Mutator)
 
-Use `@ApiTags()` decorator to group endpoints by domain:
+Create `src/lib/api/client.ts`:
 
 ```typescript
-@ApiTags('subscriptions')
-@Controller('subscriptions')
-export class SubscriptionsController {
-  // ...
+import { supabase } from "../supabase";
+import { env } from "../env";
+
+export class ApiError extends Error {
+  constructor(
+    public message: string,
+    public status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
-```
 
-### 2. Swagger Setup
+export const apiClient = async <T>(url: string, options: RequestInit): Promise<T> => {
+  const fullUrl = `${env.API_SERVER_URL}${url}`;
 
-Configure Swagger in your NestJS application:
+  // Get auth token from Supabase session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-```typescript
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  const config = new DocumentBuilder()
-    .setTitle('API Documentation')
-    .setDescription('API description')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
-
-  await app.listen(3000);
-}
-```
-
-### 3. DTO Decorators
-
-Use Swagger decorators on DTOs for proper type generation:
-
-```typescript
-import { ApiProperty } from '@nestjs/swagger';
-
-export class CreateSubscriptionDto {
-  @ApiProperty()
-  feedUrl: string;
-
-  @ApiProperty({ required: false })
-  tags?: string[];
-}
-```
-
-## Custom Instance (Mutator)
-
-The mutator provides a custom axios instance with authentication:
-
-```typescript
-import type { QueryClient } from "@tanstack/react-query";
-import axios, { type AxiosRequestConfig } from "axios";
-
-export const AXIOS_INSTANCE = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-});
-
-// Add auth interceptor
-AXIOS_INSTANCE.interceptors.request.use(
-  async (config) => {
-    // Add your auth token logic here
-    const token = await getAuthToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
-
-export const customInstance = <T>(
-  config: AxiosRequestConfig,
-  options?: AxiosRequestConfig,
-): Promise<T> => {
-  const source = axios.CancelToken.source();
-  const promise = AXIOS_INSTANCE({
-    ...config,
-    ...options,
-    cancelToken: source.token,
-  }).then(({ data }) => data);
-
-  // @ts-expect-error - Adding cancel method for query cancellation
-  promise.cancel = () => {
-    source.cancel("Query was cancelled");
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options.headers,
   };
 
-  return promise;
-};
+  if (session?.access_token) {
+    (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+  }
 
-export type ErrorType<Error> = Error;
-export type BodyType<BodyData> = BodyData;
+  const response = await fetch(fullUrl, { ...options, headers });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new ApiError(error.message ?? response.statusText, response.status);
+  }
+
+  if (response.status === 204) {
+    return { status: response.status, data: null } as T;
+  }
+
+  const data = await response.json();
+  return { status: response.status, data } as T;
+};
 ```
+
+### 4. Client package.json Scripts
+
+```json
+{
+  "scripts": {
+    "generate:api": "orval"
+  }
+}
+```
+
+---
+
+## Monorepo Integration
+
+### Root package.json Scripts
+
+```json
+{
+  "scripts": {
+    "generate:swagger": "pnpm --filter @contents-hub/server generate:swagger",
+    "generate:api": "pnpm --filter @contents-hub/extension generate:api",
+    "generate": "pnpm generate:swagger && pnpm generate:api"
+  }
+}
+```
+
+### .gitignore
+
+```gitignore
+# Generated API files (regenerated in CI)
+apps/server/__generated__/
+apps/extension/src/lib/api/__generated__/
+```
+
+---
+
+## CI/CD Integration
+
+### GitHub Actions Workflow
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run check (lint + format)
+        run: pnpm check
+
+      - name: Generate API client
+        run: pnpm generate
+
+      - name: Run type check
+        run: pnpm typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate API client
+        run: pnpm generate
+
+      - name: Build all packages
+        run: pnpm build
+```
+
+**Key Points:**
+- `pnpm generate` must run BEFORE `typecheck` and `build`
+- No secrets needed - swagger generation uses dummy env vars
+- Generated files are gitignored but recreated in CI
+
+---
 
 ## Usage Example
 
-After generating the client, use the hooks in your React components:
-
 ```typescript
-import { useCreateSubscription, useFindAllSubscription, useRemoveSubscription } from '@/lib/api/endpoints/subscriptions/subscriptions';
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useFindAllSubscription,
+  useCreateSubscription,
+  useRemoveSubscription,
+  getFindAllSubscriptionQueryKey,
+  findByUrlSubscription,
+} from "../lib/api/__generated__/api";
 
-function SubscriptionManager() {
-  // Fetch all subscriptions
-  const { data: subscriptions, isLoading } = useFindAllSubscription();
+export function useSubscriptions() {
+  const queryClient = useQueryClient();
 
-  // Create mutation
+  const { data, isLoading, error: queryError } = useFindAllSubscription();
   const createMutation = useCreateSubscription();
+  const removeMutation = useRemoveSubscription();
 
-  // Delete mutation
-  const deleteMutation = useRemoveSubscription();
+  const subscriptions = data?.data.items ?? [];
 
-  const handleCreate = async (feedUrl: string) => {
-    await createMutation.mutateAsync({
-      data: { feedUrl }
-    });
+  const addSubscription = useCallback(
+    async (feedUrl: string) => {
+      // Check if already exists
+      const existing = await findByUrlSubscription(feedUrl);
+      if (existing.data) {
+        throw new Error("Already subscribed");
+      }
+
+      await createMutation.mutateAsync({ data: { feedUrl } });
+      queryClient.invalidateQueries({ queryKey: getFindAllSubscriptionQueryKey() });
+    },
+    [createMutation, queryClient],
+  );
+
+  const removeSubscription = useCallback(
+    async (id: string) => {
+      await removeMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getFindAllSubscriptionQueryKey() });
+    },
+    [removeMutation, queryClient],
+  );
+
+  return {
+    subscriptions,
+    isLoading,
+    error,
+    addSubscription,
+    removeSubscription,
   };
-
-  const handleDelete = async (id: string) => {
-    await deleteMutation.mutateAsync({
-      id
-    });
-  };
-
-  // ... component JSX
 }
 ```
 
-## Benefits
+---
 
-1. **Type Safety**: Full TypeScript support from backend DTOs to frontend hooks
-2. **Clean Names**: Domain-focused naming without controller prefixes
-3. **Automatic Generation**: No manual API client code to maintain
-4. **React Query Integration**: Built-in caching, loading states, and error handling
-5. **Selective Generation**: Filter out internal/admin endpoints
-6. **Reserved Word Handling**: Automatically converts problematic names (delete → remove)
+## Troubleshooting
 
-## Maintenance
+| Problem | Solution |
+|---------|----------|
+| Types don't match server | Re-run `pnpm generate` |
+| CI fails with ZodError for env | Add missing dummy env vars in generate-swagger-docs.ts |
+| Duplicate operation names | Add unique `operationId` in `@ApiOperation()` |
+| Optional field not nullable | Use `@ApiProperty({ required: false, nullable: true })` |
+| Empty swagger.json | Check nest-cli.json plugin config |
+| Module not found in CI | Ensure `pnpm generate` runs before typecheck/build |
 
-1. Run Orval generation after backend API changes:
-   ```bash
-   pnpm orval
-   ```
+---
 
-2. Commit generated files to version control for type safety across the team
+## Summary
 
-3. Update the `operationName` function if you need different naming conventions
-
-4. Add more regex patterns to `filters.tags` to exclude other endpoint groups as needed
+| Layer | Responsibility | Key Files |
+|-------|---------------|-----------|
+| **Server** | API + Swagger generation | `generate-swagger-docs.ts`, `*.controller.ts`, `*.dto.ts` |
+| **Config** | Swagger plugin | `nest-cli.json` |
+| **Orval** | Code generation | `orval.config.ts`, `client.ts` |
+| **Generated** | Type-safe hooks | `__generated__/api.ts`, `__generated__/models/` |
+| **CI** | Regenerate on every build | `.github/workflows/ci.yml` |
