@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Auth } from "../auth/decorators/auth.decorator";
 import { UserId } from "../common/decorators/user.decorator";
 import { CreateSubscriptionDto } from "./dto/create-subscription.dto";
@@ -21,7 +21,6 @@ import { SubscriptionsService } from "./subscriptions.service";
 
 @Controller("subscriptions")
 @ApiTags("subscriptions")
-@ApiBearerAuth()
 @Auth()
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}

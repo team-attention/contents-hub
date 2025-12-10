@@ -1,12 +1,11 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthUser, User, UserId } from "../common/decorators/user.decorator";
 import { Auth } from "./decorators/auth.decorator";
 import { GetMeResponseDto, GetMyIdResponseDto } from "./dto/auth-response.dto";
 
 @Controller("auth")
 @ApiTags("auth")
-@ApiBearerAuth()
 export class AuthController {
   @Auth()
   @Get("me")
