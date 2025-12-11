@@ -81,6 +81,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Build shared package
+        run: pnpm --filter @contents-hub/shared build
+
       - name: Run E2E tests
         run: pnpm --filter @contents-hub/server test:e2e
         env:
