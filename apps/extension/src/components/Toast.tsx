@@ -98,5 +98,11 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
 
   const latestToast = toasts[toasts.length - 1];
 
-  return <Toast message={latestToast.message} type={latestToast.type} onClose={() => onRemove(latestToast.id)} />;
+  return (
+    <Toast
+      message={latestToast.message}
+      type={latestToast.type}
+      onClose={() => onRemove(latestToast.id)}
+    />
+  );
 }

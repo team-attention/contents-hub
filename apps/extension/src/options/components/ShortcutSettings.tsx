@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
-import type { KeyCombination, ShortcutSettings as ShortcutSettingsType } from "../../lib/settings-storage";
+import type {
+  KeyCombination,
+  ShortcutSettings as ShortcutSettingsType,
+} from "../../lib/settings-storage";
 import { formatShortcut, isMac, keyEventToCombo } from "../../lib/shortcut-utils";
 
 interface ShortcutItem {

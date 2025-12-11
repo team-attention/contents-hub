@@ -2,13 +2,13 @@
  * Background service worker for Contents Hub extension
  */
 
-import { handleOAuthCallback } from "../lib/auth";
 import {
   createContentItem,
   createSubscription,
   findByUrlContentItem,
   findByUrlSubscription,
 } from "../lib/api/__generated__/api";
+import { handleOAuthCallback } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 
 console.log("Contents Hub background service worker started");

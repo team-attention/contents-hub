@@ -245,7 +245,8 @@ function handleKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
 
-    chrome.runtime.sendMessage({ type: "QUICK_SAVE" })
+    chrome.runtime
+      .sendMessage({ type: "QUICK_SAVE" })
       .then((response) => debugLog("QUICK_SAVE response:", response))
       .catch((error) => {
         console.error("[ContentsHub:Shortcut] Failed to send QUICK_SAVE message:", error);
@@ -258,7 +259,8 @@ function handleKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
 
-    chrome.runtime.sendMessage({ type: "QUICK_SUBSCRIBE" })
+    chrome.runtime
+      .sendMessage({ type: "QUICK_SUBSCRIBE" })
       .then((response) => debugLog("QUICK_SUBSCRIBE response:", response))
       .catch((error) => {
         console.error("[ContentsHub:Shortcut] Failed to send QUICK_SUBSCRIBE message:", error);

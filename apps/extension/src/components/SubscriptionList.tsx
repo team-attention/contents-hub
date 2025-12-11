@@ -6,11 +6,7 @@ interface SubscriptionListProps {
   onUnwatch: (id: string) => Promise<void>;
 }
 
-export function SubscriptionList({
-  subscriptions,
-  isLoading,
-  onUnwatch,
-}: SubscriptionListProps) {
+export function SubscriptionList({ subscriptions, isLoading, onUnwatch }: SubscriptionListProps) {
   if (isLoading) {
     return (
       <div className="py-4">
@@ -33,11 +29,7 @@ export function SubscriptionList({
   return (
     <ul className="space-y-2 max-h-[200px] overflow-y-auto py-2">
       {subscriptions.map((subscription) => (
-        <SubscriptionItem
-          key={subscription.id}
-          subscription={subscription}
-          onUnwatch={onUnwatch}
-        />
+        <SubscriptionItem key={subscription.id} subscription={subscription} onUnwatch={onUnwatch} />
       ))}
     </ul>
   );
