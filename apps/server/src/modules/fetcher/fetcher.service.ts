@@ -38,36 +38,33 @@ export class FetcherService {
   }
 
   /**
-   * Fetch multiple content items
+   * Fetch multiple content items (parallel execution)
    */
   async fetchMany(requests: FetchRequest[]): Promise<FetchResult[]> {
-    const results: FetchResult[] = [];
-
-    for (const request of requests) {
-      try {
-        const result = await this.fetch(request);
-        results.push(result);
-      } catch (error) {
-        this.logger.error(`Failed to fetch ${request.url}:`, error);
-        results.push({
-          success: false,
-          contentItemId: request.contentItemId,
-          url: request.url,
-          errorType: "UNKNOWN",
-          errorMessage: error instanceof Error ? error.message : "Unknown error",
-          durationMs: 0,
-        });
-      }
-    }
-
-    return results;
+    return Promise.all(
+      requests.map(async (request) => {
+        try {
+          return await this.fetch(request);
+        } catch (error) {
+          this.logger.error(`Failed to fetch ${request.url}:`, error);
+          return {
+            success: false,
+            contentItemId: request.contentItemId,
+            url: request.url,
+            errorType: "UNKNOWN",
+            errorMessage: error instanceof Error ? error.message : "Unknown error",
+            durationMs: 0,
+          } satisfies FetchResult;
+        }
+      }),
+    );
   }
 
   private async saveFetchHistory(result: FetchResult): Promise<void> {
     await this.db.insert(fetchHistory).values({
       contentItemId: result.contentItemId,
       url: result.url,
-      success: result.success ? 1 : 0,
+      success: result.success,
       statusCode: result.statusCode,
       contentLength: result.contentLength,
       extractedLength: result.extractedLength,

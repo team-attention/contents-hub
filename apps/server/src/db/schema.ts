@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, jsonb, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * contents_hub schema - isolates this project's tables from other projects
@@ -65,7 +65,7 @@ export const fetchHistory = contentsHubSchema.table("fetch_history", {
     .notNull()
     .references(() => contentItems.id),
   url: text("url").notNull(),
-  success: integer("success").notNull(), // 1 = success, 0 = failure (SQLite-like boolean)
+  success: boolean("success").notNull(),
   statusCode: integer("status_code"),
   contentLength: integer("content_length"),
   extractedLength: integer("extracted_length"), // length of extracted article text
@@ -87,7 +87,7 @@ export const digestHistory = contentsHubSchema.table("digest_history", {
   outputTokens: integer("output_tokens").notNull().default(0),
   model: text("model").notNull(), // e.g., "claude-3-haiku-20240307"
   durationMs: integer("duration_ms"),
-  success: integer("success").notNull(), // 1 = success, 0 = failure
+  success: boolean("success").notNull(),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });

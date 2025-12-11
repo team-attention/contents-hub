@@ -9,7 +9,7 @@ import type {
 } from "@contents-hub/shared";
 import { GoogleGenAI } from "@google/genai";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { DIGEST_SYSTEM_PROMPT, buildDigestUserPrompt } from "./prompts/digest.prompt";
 import { SUMMARIZE_SYSTEM_PROMPT, buildSummarizeUserPrompt } from "./prompts/summarize.prompt";
 
@@ -179,16 +179,15 @@ export class DigesterService {
         success: true,
       });
 
-      // Update all content items with digest reference and status
-      for (const item of request.items) {
-        await this.db
-          .update(contentItems)
-          .set({
-            digestId: digestRecord.id,
-            status: "done",
-          })
-          .where(eq(contentItems.id, item.contentItemId));
-      }
+      // Update all content items with digest reference and status (bulk update)
+      const itemIds = request.items.map((item) => item.contentItemId);
+      await this.db
+        .update(contentItems)
+        .set({
+          digestId: digestRecord.id,
+          status: "done",
+        })
+        .where(inArray(contentItems.id, itemIds));
 
       this.logger.log(`Digest created: ${digestRecord.id} with ${request.items.length} items`);
 
@@ -233,17 +232,10 @@ export class DigesterService {
   }
 
   /**
-   * Summarize multiple content items
+   * Summarize multiple content items (parallel execution)
    */
   async summarizeMany(requests: SummarizeRequest[]): Promise<SummarizeResult[]> {
-    const results: SummarizeResult[] = [];
-
-    for (const request of requests) {
-      const result = await this.summarize(request);
-      results.push(result);
-    }
-
-    return results;
+    return Promise.all(requests.map((request) => this.summarize(request)));
   }
 
   private generateDigestTitle(): string {
@@ -271,7 +263,7 @@ export class DigesterService {
       outputTokens: data.outputTokens,
       model: data.model,
       durationMs: data.durationMs,
-      success: data.success ? 1 : 0,
+      success: data.success,
       errorMessage: data.errorMessage,
     });
   }

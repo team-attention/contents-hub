@@ -62,7 +62,7 @@ describe("Pipeline E2E Tests", () => {
       // Step 4: Verify fetch history was created
       const fetchHistory = await db.select().from(schema.fetchHistory);
       expect(fetchHistory).toHaveLength(1);
-      expect(fetchHistory[0].success).toBe(1);
+      expect(fetchHistory[0].success).toBe(true);
       expect(fetchHistory[0].url).toBe(testUrl);
 
       // Step 5: Verify digest history was created
