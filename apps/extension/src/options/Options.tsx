@@ -28,7 +28,7 @@ function Options() {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <ShortcutSettings
-            shortcut={settings.shortcuts.quickSubscribe}
+            shortcuts={settings.shortcuts}
             onSave={saveShortcut}
             onReset={reset}
           />

@@ -9,7 +9,7 @@ import { z } from "zod";
 config({
   node_env: process.env.APP_ENV,
   default_node_env: "development",
-  path: resolve(__dirname, "../../.."),
+  path: resolve(__dirname, "../"),
 });
 
 export const env = z

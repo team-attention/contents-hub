@@ -3,6 +3,12 @@
  */
 
 import { handleOAuthCallback } from "../lib/auth";
+import {
+  createContentItem,
+  createSubscription,
+  findByUrlContentItem,
+  findByUrlSubscription,
+} from "../lib/api/__generated__/api";
 import { supabase } from "../lib/supabase";
 
 console.log("Contents Hub background service worker started");
@@ -104,12 +110,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "QUICK_SAVE") {
+    handleQuickSave(sender.tab?.id).then((result) => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
   return true;
 });
 
 async function handleQuickSubscribe(
   tabId: number | undefined,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; error?: string; alreadyExists?: boolean }> {
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const currentTab = tabs[0];
@@ -119,30 +132,90 @@ async function handleQuickSubscribe(
     }
 
     const url = currentTab.url;
-    console.log("Quick subscribe to:", url);
+    const title = currentTab.title || url;
+    console.log("Quick watch:", url);
 
-    // TODO: Implement actual subscription logic with server
-    // For now, just log and return success
-
-    // Send feedback to content script
-    if (tabId) {
-      chrome.tabs
-        .sendMessage(tabId, {
-          type: "SUBSCRIBE_FEEDBACK",
-          success: true,
-          url,
-        })
-        .catch(() => {
-          // Ignore if content script not ready
-        });
+    // Check if already subscribed
+    try {
+      const existing = await findByUrlSubscription({ url });
+      if (existing.data) {
+        sendFeedback(tabId, "WATCH_FEEDBACK", true, url, "Already watching");
+        return { success: true, url, alreadyExists: true };
+      }
+    } catch {
+      // Not found, proceed with creation
     }
 
+    // Create subscription
+    await createSubscription({ url, name: title, checkInterval: 60 });
+
+    sendFeedback(tabId, "WATCH_FEEDBACK", true, url, "Now watching");
     return { success: true, url };
   } catch (error) {
-    console.error("Quick subscribe error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
+    console.error("Quick watch error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    sendFeedback(tabId, "WATCH_FEEDBACK", false, undefined, errorMessage);
+    return { success: false, error: errorMessage };
   }
+}
+
+async function handleQuickSave(
+  tabId: number | undefined,
+): Promise<{ success: boolean; url?: string; error?: string; alreadyExists?: boolean }> {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTab = tabs[0];
+
+    if (!currentTab?.url) {
+      return { success: false, error: "No active tab URL" };
+    }
+
+    const url = currentTab.url;
+    const title = currentTab.title;
+    console.log("Quick save:", url);
+
+    // Check if already saved
+    try {
+      const existing = await findByUrlContentItem({ url });
+      if (existing.data) {
+        sendFeedback(tabId, "SAVE_FEEDBACK", true, url, "Already saved");
+        return { success: true, url, alreadyExists: true };
+      }
+    } catch {
+      // Not found, proceed with creation
+    }
+
+    // Create content item
+    await createContentItem({ url, title });
+
+    sendFeedback(tabId, "SAVE_FEEDBACK", true, url, "Saved");
+    return { success: true, url };
+  } catch (error) {
+    console.error("Quick save error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    sendFeedback(tabId, "SAVE_FEEDBACK", false, undefined, errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+function sendFeedback(
+  tabId: number | undefined,
+  type: string,
+  success: boolean,
+  url?: string,
+  message?: string,
+): void {
+  console.log("sendFeedback called:", { tabId, type, success, url, message });
+
+  if (!tabId) {
+    console.warn("sendFeedback: No tabId, cannot send feedback");
+    return;
+  }
+
+  chrome.tabs
+    .sendMessage(tabId, { type, success, url, message })
+    .then(() => console.log("Feedback sent successfully to tab:", tabId))
+    .catch((error) => {
+      console.error("Failed to send feedback to tab:", tabId, error);
+    });
 }

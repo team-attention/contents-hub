@@ -10,14 +10,23 @@ export interface KeyCombination {
 
 export interface ShortcutSettings {
   quickSubscribe: KeyCombination;
+  quickSave: KeyCombination;
 }
 
 export interface Settings {
   shortcuts: ShortcutSettings;
 }
 
-export const DEFAULT_SHORTCUT: KeyCombination = {
+export const DEFAULT_QUICK_SUBSCRIBE: KeyCombination = {
   key: "s",
+  ctrlKey: true,
+  shiftKey: true,
+  altKey: false,
+  metaKey: false,
+};
+
+export const DEFAULT_QUICK_SAVE: KeyCombination = {
+  key: "d",
   ctrlKey: true,
   shiftKey: true,
   altKey: false,
@@ -26,7 +35,8 @@ export const DEFAULT_SHORTCUT: KeyCombination = {
 
 export const DEFAULT_SETTINGS: Settings = {
   shortcuts: {
-    quickSubscribe: DEFAULT_SHORTCUT,
+    quickSubscribe: DEFAULT_QUICK_SUBSCRIBE,
+    quickSave: DEFAULT_QUICK_SAVE,
   },
 };
 
@@ -56,8 +66,11 @@ export async function resetToDefaults(): Promise<void> {
   await setSettings(DEFAULT_SETTINGS);
 }
 
-export async function updateShortcut(shortcut: KeyCombination): Promise<void> {
+export async function updateShortcut(
+  type: keyof ShortcutSettings,
+  shortcut: KeyCombination,
+): Promise<void> {
   const settings = await getSettings();
-  settings.shortcuts.quickSubscribe = shortcut;
+  settings.shortcuts[type] = shortcut;
   await setSettings(settings);
 }

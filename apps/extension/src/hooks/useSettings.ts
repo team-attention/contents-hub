@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   type KeyCombination,
   type Settings,
+  type ShortcutSettings,
   getSettings,
   resetToDefaults,
   updateShortcut,
@@ -12,7 +13,7 @@ interface UseSettingsResult {
   settings: Settings;
   isLoading: boolean;
   error: Error | null;
-  saveShortcut: (shortcut: KeyCombination) => Promise<void>;
+  saveShortcut: (type: keyof ShortcutSettings, shortcut: KeyCombination) => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -48,14 +49,17 @@ export function useSettings(): UseSettingsResult {
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
 
-  const saveShortcut = useCallback(async (shortcut: KeyCombination) => {
-    try {
-      await updateShortcut(shortcut);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to save shortcut"));
-      throw err;
-    }
-  }, []);
+  const saveShortcut = useCallback(
+    async (type: keyof ShortcutSettings, shortcut: KeyCombination) => {
+      try {
+        await updateShortcut(type, shortcut);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("Failed to save shortcut"));
+        throw err;
+      }
+    },
+    [],
+  );
 
   const reset = useCallback(async () => {
     try {
