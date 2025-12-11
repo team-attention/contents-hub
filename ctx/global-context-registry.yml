@@ -1,6 +1,6 @@
 meta:
   version: 1.0.0
-  last_synced: 2025-12-08T11:04:52.358Z
+  last_synced: 2025-12-11T11:25:42.470Z
 contexts:
   /project-overview.md:
     type: document
@@ -16,6 +16,32 @@ contexts:
         - Understanding project structure or tech stack
         - Adding new apps or packages
         - Checking environment configuration
+  /rules/database.md:
+    type: document
+    source: ctx/rules/database.md
+    folder: rules
+    checksum: fa9a7b002a5aec44fdc6967b637306c6
+    last_modified: 2025-12-11T11:25:32.200Z
+    preview:
+      what: |
+        데이터베이스 스키마 규칙. 데이터 이원화 방지 및 JOIN 활용 원칙.
+      when:
+        - 새로운 테이블/컬럼 추가 시
+        - 스키마 설계 리뷰 시
+        - 데이터 중복 저장 여부 판단 시
+  /conventions/env.md:
+    type: document
+    source: ctx/conventions/env.md
+    folder: conventions
+    checksum: 067f73baa0124c086f4e1bdb894b8d1f
+    last_modified: 2025-12-11T11:25:32.057Z
+    preview:
+      what: |
+        환경변수 접근 규칙. process.env 대신 타입 안전한 env 객체 사용.
+      when:
+        - 환경변수를 사용하는 코드 작성 시
+        - 새로운 환경변수 추가 시
+        - 코드 리뷰에서 환경변수 접근 방식 확인 시
   /deployment/fly-io.md:
     type: document
     source: ctx/deployment/fly-io.md
@@ -37,6 +63,12 @@ contexts:
         - Local development setup
         - Extension deployment (not applicable)
 folders:
+  rules:
+    checksum: a8a06e3edff99736d7d604945b9a96d5
+    last_modified: 2025-12-11T11:25:32.200Z
+  conventions:
+    checksum: dd2a679a8519d0e751bdf74a1e0156c9
+    last_modified: 2025-12-11T11:25:32.057Z
   deployment:
     checksum: 9a08c0c5d6b60097411cb9f780c78db4
     last_modified: 2025-12-06T06:32:41.581Z
