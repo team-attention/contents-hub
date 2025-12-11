@@ -24,6 +24,9 @@ work:
     type: linear
     url: https://linear.app/team-attention/
     project: Contents Hub
+  symlink:
+    - .env.local
+    - .claude/settings.local.json
 frontmatter:
   local: optional
   global: optional

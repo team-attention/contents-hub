@@ -1,3 +1,5 @@
+import { UserId } from "@/common/decorators/user.decorator";
+import { Auth } from "@/modules/auth/decorators/auth.decorator";
 import {
   Body,
   Controller,
@@ -10,8 +12,6 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Auth } from "../auth/decorators/auth.decorator";
-import { UserId } from "../common/decorators/user.decorator";
 import { CreateSubscriptionDto } from "./dto/create-subscription.dto";
 import {
   SubscriptionListResponseDto,

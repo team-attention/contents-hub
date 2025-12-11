@@ -1,7 +1,7 @@
+import { type DbConnection, PROVIDER_DB_CONNECTION } from "@/db/drizzle.module";
+import { subscriptions } from "@/db/schema";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
-import { type DbConnection, PROVIDER_DB_CONNECTION } from "../db/drizzle.module";
-import { subscriptions } from "../db/schema";
 import type { CreateSubscriptionDto } from "./dto/create-subscription.dto";
 import type {
   SubscriptionListResponseDto,

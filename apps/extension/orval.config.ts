@@ -22,10 +22,16 @@ export default defineConfig({
           const tag = operation.tags?.[0];
           if (!tag) return action;
 
-          // subscriptions → Subscription (단수형 + PascalCase)
-          const domain = tag.endsWith("s")
-            ? tag.slice(0, -1).charAt(0).toUpperCase() + tag.slice(1, -1)
-            : tag.charAt(0).toUpperCase() + tag.slice(1);
+          // content-items → ContentItem (하이픈 처리 + 단수형 + PascalCase)
+          const toPascalCase = (str: string) =>
+            str
+              .split("-")
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join("");
+
+          const pascalTag = toPascalCase(tag);
+          // 단수형으로 변환 (s 제거)
+          const domain = pascalTag.endsWith("s") ? pascalTag.slice(0, -1) : pascalTag;
 
           // delete → remove (reserved word)
           if (action === "delete") return `remove${domain}`;
