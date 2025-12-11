@@ -1,7 +1,7 @@
+import { appEnv, env } from "@/env";
 import { UseGuards, applyDecorators } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { ApiBearerAuth } from "@nestjs/swagger";
-import { appEnv, env } from "../../env";
 import { MOCK_STRATEGY } from "../strategies/mock.strategy";
 import { SUPABASE_STRATEGY } from "../strategies/supabase.strategy";
 

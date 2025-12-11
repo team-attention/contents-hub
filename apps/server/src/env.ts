@@ -29,8 +29,8 @@ export const env = z
     // Auth (optional - for dev/test mock)
     MOCK_USER_ID: z.string().optional(),
 
-    // Anthropic (Claude)
-    ANTHROPIC_API_KEY: z.string(),
+    // Gemini
+    GEMINI_API_KEY: z.string(),
   })
   .parse(process.env);
 

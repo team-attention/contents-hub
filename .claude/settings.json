@@ -12,7 +12,13 @@
       "mcp__context7__get-library-docs",
       "Bash(cat:*)",
       "Bash(fly deploy:*)",
-      "Bash(npx ctx:*)"
+      "Bash(npx ctx:*)",
+      "mcp__linear-server__list_teams",
+      "mcp__linear-server__create_issue",
+      "mcp__linear-server__list_projects",
+      "mcp__linear-server__update_issue",
+      "mcp__linear-server__get_issue",
+      "Bash(gh run view:*)"
     ],
     "deny": [],
     "ask": []

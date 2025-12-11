@@ -9,7 +9,7 @@ module.exports = {
   },
   globalSetup: "./test/jest-global-setup.ts",
   globalTeardown: "./test/jest-global-teardown.ts",
-  setupFilesAfterEnv: ["./test/env-setup.ts"],
+  setupFilesAfterEnv: ["./test/env-setup.ts", "./test/setup-mocks.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },

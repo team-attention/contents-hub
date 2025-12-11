@@ -1,7 +1,7 @@
+import { env } from "@/env";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
-import { env } from "../../env";
 
 export const SUPABASE_STRATEGY = "supabase";
 
