@@ -15,6 +15,20 @@
       "when": 1765462874528,
       "tag": "0001_smiling_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1733997600000,
+      "tag": "0002_list_diff_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1765550625185,
+      "tag": "0003_loud_boomerang",
+      "breakpoints": true
     }
   ]
 }

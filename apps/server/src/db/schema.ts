@@ -27,8 +27,9 @@ export type ContentItemSource = "read_later" | "subscription";
  * Subscription status enum
  * - active: subscription is active and being watched
  * - paused: user paused the subscription
+ * - broken: URL/Selector not found, auto-paused with error
  */
-export type SubscriptionStatus = "active" | "paused";
+export type SubscriptionStatus = "active" | "paused" | "broken";
 
 /**
  * Content items table - stores URLs to be fetched and digested
@@ -121,6 +122,8 @@ export const subscriptions = contentsHubSchema.table("subscriptions", {
   checkInterval: integer("check_interval").notNull().default(60), // minutes
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true, mode: "string" }),
   lastContentHash: text("last_content_hash"),
+  initialSelector: text("initial_selector"), // user-selected selector from picker
+  errorMessage: text("error_message"), // error details when status="broken"
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .notNull()
@@ -140,5 +143,9 @@ export const subscriptionHistory = contentsHubSchema.table("subscription_history
   contentHash: text("content_hash"), // hash for diff detection (null on error)
   hasChanged: boolean("has_changed"), // true if content changed from last check
   error: text("error"), // null = success, otherwise error info (e.g., "TIMEOUT: 30s exceeded")
+  // List diff fields
+  urls: jsonb("urls").$type<string[]>(), // discovered URLs (newest first)
+  stableSelectors: jsonb("stable_selectors").$type<string[]>(), // AI-extracted stable selectors
+  selectorHierarchy: text("selector_hierarchy"), // DOM structure (simplified HTML)
   checkedAt: timestamp("checked_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });

@@ -10,10 +10,10 @@ export class SubscriptionResponseDto {
   @ApiProperty({ example: "My Subscription" })
   name: string;
 
-  @ApiProperty({ enum: ["active", "paused", "error"], example: "active" })
+  @ApiProperty({ enum: ["active", "paused", "broken"], example: "active" })
   status: string;
 
-  @ApiProperty({ example: 3600, description: "Check interval in seconds" })
+  @ApiProperty({ example: 60, description: "Check interval in minutes" })
   checkInterval: number;
 
   @ApiProperty({ example: "2024-01-01T00:00:00.000Z", nullable: true })
@@ -21,6 +21,12 @@ export class SubscriptionResponseDto {
 
   @ApiProperty({ example: "abc123hash", nullable: true })
   lastContentHash: string | null;
+
+  @ApiProperty({ example: "article.post-list", nullable: true })
+  initialSelector: string | null;
+
+  @ApiProperty({ example: "Selector not found", nullable: true })
+  errorMessage: string | null;
 
   @ApiProperty({ example: "2024-01-01T00:00:00.000Z" })
   createdAt: string;
