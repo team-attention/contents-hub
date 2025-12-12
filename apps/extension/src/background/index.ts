@@ -160,9 +160,7 @@ async function handleQuickSubscribe(
   }
 }
 
-async function handleQuickSave(
-  tabId: number | undefined,
-): Promise<{
+async function handleQuickSave(tabId: number | undefined): Promise<{
   success: boolean;
   url?: string;
   error?: string;

@@ -17,6 +17,7 @@ import {
   SubscriptionListResponseDto,
   SubscriptionResponseDto,
 } from "./dto/subscription-response.dto";
+import { WatchSubscriptionDto, WatchSubscriptionResultDto } from "./dto/watch-subscription.dto";
 import { SubscriptionsService } from "./subscriptions.service";
 
 @Controller("subscriptions")
@@ -51,6 +52,21 @@ export class SubscriptionsController {
     @Body() dto: CreateSubscriptionDto,
   ): Promise<SubscriptionResponseDto> {
     return this.subscriptionsService.create(userId, dto);
+  }
+
+  @Post("watch")
+  @ApiOperation({
+    summary: "Initialize a list-diff subscription with selector",
+    description:
+      "Create a subscription that monitors a list of URLs using a CSS selector. " +
+      "The selector should point to a container element with anchor tags.",
+  })
+  @ApiResponse({ status: 201, type: WatchSubscriptionResultDto })
+  initializeWatch(
+    @UserId() userId: string,
+    @Body() dto: WatchSubscriptionDto,
+  ): Promise<WatchSubscriptionResultDto> {
+    return this.subscriptionsService.initializeWatch(userId, dto);
   }
 
   @Delete(":id")
