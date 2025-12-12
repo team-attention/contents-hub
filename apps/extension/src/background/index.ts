@@ -162,7 +162,13 @@ async function handleQuickSubscribe(
 
 async function handleQuickSave(
   tabId: number | undefined,
-): Promise<{ success: boolean; url?: string; error?: string; alreadyExists?: boolean; reactivated?: boolean }> {
+): Promise<{
+  success: boolean;
+  url?: string;
+  error?: string;
+  alreadyExists?: boolean;
+  reactivated?: boolean;
+}> {
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const currentTab = tabs[0];

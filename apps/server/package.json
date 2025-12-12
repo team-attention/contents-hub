@@ -13,6 +13,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "APP_ENV=test jest --config ./jest-e2e.config.js --runInBand",
+    "test:e2e:real": "APP_ENV=test USE_MOCKS=false jest --config ./jest-e2e.config.js --runInBand --testPathPattern=e2e-script",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

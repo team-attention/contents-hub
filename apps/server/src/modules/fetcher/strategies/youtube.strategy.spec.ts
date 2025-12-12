@@ -1,8 +1,4 @@
-import {
-  extractVideoId,
-  isYouTubeUrl,
-  youtubeFetch,
-} from "./youtube.strategy";
+import { extractVideoId, isYouTubeUrl, youtubeFetch } from "./youtube.strategy";
 
 describe("YouTube Strategy", () => {
   // 실제 네트워크 요청이므로 타임아웃 여유있게 설정
@@ -10,9 +6,7 @@ describe("YouTube Strategy", () => {
 
   describe("extractVideoId", () => {
     it("should extract video ID from standard watch URL", () => {
-      expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(
-        "dQw4w9WgXcQ",
-      );
+      expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
     });
 
     it("should extract video ID from short URL", () => {
@@ -20,15 +14,13 @@ describe("YouTube Strategy", () => {
     });
 
     it("should extract video ID from embed URL", () => {
-      expect(extractVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe(
-        "dQw4w9WgXcQ",
-      );
+      expect(extractVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
     });
 
     it("should extract video ID from URL with extra params", () => {
-      expect(
-        extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120"),
-      ).toBe("dQw4w9WgXcQ");
+      expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120")).toBe(
+        "dQw4w9WgXcQ",
+      );
     });
 
     it("should extract raw video ID", () => {
@@ -120,9 +112,7 @@ describe("YouTube Strategy", () => {
       const result = await youtubeFetch(url);
 
       expect(result.success).toBe(false);
-      expect(["NOT_FOUND", "EXTRACTION_ERROR", "UNKNOWN"]).toContain(
-        result.errorType,
-      );
+      expect(["NOT_FOUND", "EXTRACTION_ERROR", "UNKNOWN"]).toContain(result.errorType);
 
       console.log("=== Invalid Video ===");
       console.log("Error type:", result.errorType);
