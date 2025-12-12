@@ -1,4 +1,20 @@
 meta:
   version: 1.0.0
-  last_synced: 2025-12-08T11:04:52.349Z
-contexts: {}
+  last_synced: 2025-12-12T11:35:19.882Z
+contexts:
+  /apps/server/src/modules/fetcher/strategies/youtube.strategy.ts:
+    type: file
+    source: apps/server/src/modules/fetcher/strategies/youtube.strategy.ctx.md
+    checksum: 6c12ab6eb06fe280fe3c99f0f2427ff2
+    target_checksum: 6c7eb19c824abb54086ede5417afb5a5
+    last_modified: 2025-12-12T11:35:14.058Z
+    preview:
+      what: YouTube transcript fetching strategy using youtube-transcript-plus library
+      when:
+        - When modifying YouTube transcript fetching logic
+        - When debugging YouTube-related fetch failures
+        - When adding support for new YouTube URL formats
+        - When handling transcript language preferences
+      not_when:
+        - When working on HTTP/article fetching (see http.strategy.ts)
+        - When working on RSS feeds

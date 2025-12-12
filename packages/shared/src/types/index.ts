@@ -112,6 +112,8 @@ export type FetchErrorType =
   | "NETWORK_ERROR"
   | "PARSE_ERROR"
   | "EXTRACTION_ERROR"
+  | "INVALID_URL"
+  | "TRANSCRIPT_DISABLED"
   | "UNKNOWN";
 
 /**

@@ -4,6 +4,7 @@ import type { FetchRequest, FetchResult } from "@contents-hub/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { httpFetch } from "./strategies/http.strategy";
+import { isYouTubeUrl, youtubeFetch } from "./strategies/youtube.strategy";
 
 @Injectable()
 export class FetcherService {
@@ -20,8 +21,10 @@ export class FetcherService {
   async fetch(request: FetchRequest): Promise<FetchResult> {
     this.logger.log(`Fetching: ${request.url}`);
 
-    // Execute HTTP fetch
-    const result = await httpFetch(request.url);
+    // Select strategy based on URL
+    const result = isYouTubeUrl(request.url)
+      ? await youtubeFetch(request.url)
+      : await httpFetch(request.url);
     result.contentItemId = request.contentItemId;
 
     // Save to fetch_history
