@@ -7,6 +7,7 @@ import {
   createSubscription,
   findByUrlContentItem,
   findByUrlSubscription,
+  updateContentItem,
 } from "../lib/api/__generated__/api";
 import { handleOAuthCallback } from "../lib/auth";
 import { supabase } from "../lib/supabase";
@@ -161,7 +162,7 @@ async function handleQuickSubscribe(
 
 async function handleQuickSave(
   tabId: number | undefined,
-): Promise<{ success: boolean; url?: string; error?: string; alreadyExists?: boolean }> {
+): Promise<{ success: boolean; url?: string; error?: string; alreadyExists?: boolean; reactivated?: boolean }> {
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const currentTab = tabs[0];
@@ -178,6 +179,16 @@ async function handleQuickSave(
     try {
       const existing = await findByUrlContentItem({ url });
       if (existing.data) {
+        const status = existing.data.status;
+
+        // If done/archived, reactivate by setting status back to pending
+        if (status === "done" || status === "archived") {
+          await updateContentItem(existing.data.id, { status: "pending" });
+          sendFeedback(tabId, "SAVE_FEEDBACK", true, url, "Saved again");
+          return { success: true, url, reactivated: true };
+        }
+
+        // If pending/ready, already in queue
         sendFeedback(tabId, "SAVE_FEEDBACK", true, url, "Already saved");
         return { success: true, url, alreadyExists: true };
       }
