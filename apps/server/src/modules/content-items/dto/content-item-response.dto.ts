@@ -1,4 +1,4 @@
-import type { ContentItemStatus } from "@contents-hub/shared";
+import type { ContentItemSource, ContentItemStatus } from "@contents-hub/shared";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class ContentItemResponseDto {
@@ -16,6 +16,15 @@ export class ContentItemResponseDto {
     example: "pending",
   })
   status: ContentItemStatus;
+
+  @ApiProperty({
+    enum: ["read_later", "subscription"],
+    example: "read_later",
+  })
+  source: ContentItemSource;
+
+  @ApiProperty({ example: "550e8400-e29b-41d4-a716-446655440000", nullable: true })
+  subscriptionId: string | null;
 
   @ApiProperty({ example: "Article content...", nullable: true })
   fetchedContent: string | null;

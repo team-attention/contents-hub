@@ -8,8 +8,10 @@
 
 /**
  * Subscription status
+ * - active: subscription is active and being watched
+ * - paused: user paused the subscription
  */
-export type SubscriptionStatus = "active" | "paused" | "error";
+export type SubscriptionStatus = "active" | "paused";
 
 /**
  * Content check result
@@ -51,6 +53,13 @@ export interface Subscription {
 export type ContentItemStatus = "pending" | "ready" | "done" | "archived" | "error";
 
 /**
+ * Content item source
+ * - read_later: manually added via extension "Read Later"
+ * - subscription: auto-created from subscription diff detection
+ */
+export type ContentItemSource = "read_later" | "subscription";
+
+/**
  * Content item entity
  */
 export interface ContentItem {
@@ -59,6 +68,8 @@ export interface ContentItem {
   url: string;
   title?: string;
   status: ContentItemStatus;
+  source: ContentItemSource;
+  subscriptionId?: string;
   fetchedContent?: string;
   fetchedAt?: string;
   summary?: string;

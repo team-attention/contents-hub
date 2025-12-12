@@ -164,6 +164,8 @@ export class ContentItemsService {
       url: row.url,
       title: row.title,
       status: row.status,
+      source: row.source,
+      subscriptionId: row.subscriptionId,
       fetchedContent: row.fetchedContent,
       fetchedAt: row.fetchedAt,
       summary: row.summary,

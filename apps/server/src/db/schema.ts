@@ -17,8 +17,22 @@ export const contentsHubSchema = pgSchema("contents_hub");
 export type ContentItemStatus = "pending" | "ready" | "done" | "archived" | "error";
 
 /**
+ * Content item source enum
+ * - read_later: manually added via extension "Read Later"
+ * - subscription: auto-created from subscription diff detection
+ */
+export type ContentItemSource = "read_later" | "subscription";
+
+/**
+ * Subscription status enum
+ * - active: subscription is active and being watched
+ * - paused: user paused the subscription
+ */
+export type SubscriptionStatus = "active" | "paused";
+
+/**
  * Content items table - stores URLs to be fetched and digested
- * This is separate from subscriptions - extension creates content_items directly
+ * Can be created from Read Later (extension) or subscription diff detection
  */
 export const contentItems = contentsHubSchema.table("content_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -26,6 +40,9 @@ export const contentItems = contentsHubSchema.table("content_items", {
   url: text("url").notNull(),
   title: text("title"), // extracted or user-provided title
   status: text("status").$type<ContentItemStatus>().notNull().default("pending"),
+  // Source tracking
+  source: text("source").$type<ContentItemSource>().notNull().default("read_later"),
+  subscriptionId: uuid("subscription_id").references(() => subscriptions.id),
   // Fetched content
   fetchedContent: text("fetched_content"), // extracted article text
   fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: "string" }),
@@ -100,7 +117,7 @@ export const subscriptions = contentsHubSchema.table("subscriptions", {
   userId: uuid("user_id").notNull(),
   url: text("url").notNull(),
   name: text("name").notNull(),
-  status: text("status").notNull().default("active"),
+  status: text("status").$type<SubscriptionStatus>().notNull().default("active"),
   checkInterval: integer("check_interval").notNull().default(60), // minutes
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true, mode: "string" }),
   lastContentHash: text("last_content_hash"),
@@ -112,14 +129,16 @@ export const subscriptions = contentsHubSchema.table("subscriptions", {
 });
 
 /**
- * Content history table - stores content snapshots for diff detection
+ * Subscription history table - logs all subscription check attempts
+ * error: null = success, has value = failure (contains error type + message)
  */
-export const contentHistory = contentsHubSchema.table("content_history", {
+export const subscriptionHistory = contentsHubSchema.table("subscription_history", {
   id: uuid("id").primaryKey().defaultRandom(),
   subscriptionId: uuid("subscription_id")
     .notNull()
     .references(() => subscriptions.id),
-  contentHash: text("content_hash").notNull(),
-  summary: text("summary"),
+  contentHash: text("content_hash"), // hash for diff detection (null on error)
+  hasChanged: boolean("has_changed"), // true if content changed from last check
+  error: text("error"), // null = success, otherwise error info (e.g., "TIMEOUT: 30s exceeded")
   checkedAt: timestamp("checked_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });
