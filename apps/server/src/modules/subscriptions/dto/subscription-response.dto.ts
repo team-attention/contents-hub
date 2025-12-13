@@ -1,3 +1,4 @@
+import type { RenderType } from "@contents-hub/shared";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class SubscriptionResponseDto {
@@ -27,6 +28,13 @@ export class SubscriptionResponseDto {
 
   @ApiProperty({ example: "Selector not found", nullable: true })
   errorMessage: string | null;
+
+  @ApiProperty({
+    enum: ["static", "dynamic", "unknown"],
+    example: "unknown",
+    nullable: true,
+  })
+  renderType: RenderType | null;
 
   @ApiProperty({ example: "2024-01-01T00:00:00.000Z" })
   createdAt: string;

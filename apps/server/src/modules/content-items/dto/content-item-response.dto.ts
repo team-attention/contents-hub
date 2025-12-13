@@ -1,4 +1,4 @@
-import type { ContentItemSource, ContentItemStatus } from "@contents-hub/shared";
+import type { ContentItemSource, ContentItemStatus, RenderType } from "@contents-hub/shared";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class ContentItemResponseDto {
@@ -40,6 +40,13 @@ export class ContentItemResponseDto {
 
   @ApiProperty({ nullable: true })
   metadata: Record<string, unknown> | null;
+
+  @ApiProperty({
+    enum: ["static", "dynamic", "unknown"],
+    example: "unknown",
+    nullable: true,
+  })
+  renderType: RenderType | null;
 
   @ApiProperty({ example: "2024-01-01T00:00:00.000Z" })
   createdAt: string;

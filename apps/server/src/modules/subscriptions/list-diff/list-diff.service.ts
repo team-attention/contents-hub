@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BrowserPoolService } from "@/modules/fetcher/browser-pool.service";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import type { ListDiffOptions, ListDiffResult, UrlLookupResult } from "./list-diff.types";
@@ -16,8 +17,14 @@ const MAX_CLIMB_DEPTH = 10;
 export class ListDiffService {
   private readonly logger = new Logger(ListDiffService.name);
 
+  constructor(
+    @Optional()
+    private readonly browserPoolService?: BrowserPoolService,
+  ) {}
+
   /**
    * Fetch HTML and extract URLs from a container using a CSS selector
+   * Supports smart detection: tries static first, falls back to dynamic if selector not found
    */
   async fetch(
     pageUrl: string,
@@ -25,25 +32,83 @@ export class ListDiffService {
     options: ListDiffOptions = {},
   ): Promise<ListDiffResult> {
     const startTime = Date.now();
-    const { timeout = DEFAULT_TIMEOUT, maxDepth = DEFAULT_MAX_DEPTH } = options;
+    const { timeout = DEFAULT_TIMEOUT, maxDepth = DEFAULT_MAX_DEPTH, renderType } = options;
 
-    this.logger.debug(`Fetching ${pageUrl} with selector: ${selector}`);
+    this.logger.debug(
+      `Fetching ${pageUrl} with selector: ${selector} (renderType: ${renderType ?? "unknown"})`,
+    );
+
+    // If renderType is known, use that strategy directly
+    if (renderType === "static") {
+      return this.fetchWithStrategy(pageUrl, selector, "static", { timeout, maxDepth, startTime });
+    }
+
+    if (renderType === "dynamic") {
+      return this.fetchWithStrategy(pageUrl, selector, "dynamic", { timeout, maxDepth, startTime });
+    }
+
+    // Unknown renderType: try static first, then dynamic fallback
+    this.logger.debug(`Trying static fetch first for ${pageUrl}`);
+    const staticResult = await this.fetchWithStrategy(pageUrl, selector, "static", {
+      timeout,
+      maxDepth,
+      startTime,
+    });
+
+    // If static succeeded, return it
+    if (staticResult.success) {
+      this.logger.debug(`Static fetch succeeded for ${pageUrl}`);
+      return staticResult;
+    }
+
+    // Static failed - check if we can try dynamic
+    if (!this.browserPoolService?.isReady()) {
+      this.logger.warn(`Static fetch failed and browser pool not available for ${pageUrl}`);
+      return staticResult; // Return static error
+    }
+
+    // Try dynamic fallback
+    this.logger.debug(`Static fetch failed (${staticResult.error}), trying dynamic for ${pageUrl}`);
+    const dynamicResult = await this.fetchWithStrategy(pageUrl, selector, "dynamic", {
+      timeout,
+      maxDepth,
+      startTime,
+    });
+
+    return dynamicResult;
+  }
+
+  /**
+   * Fetch with a specific strategy (static or dynamic)
+   */
+  private async fetchWithStrategy(
+    pageUrl: string,
+    selector: string,
+    strategy: "static" | "dynamic",
+    context: { timeout: number; maxDepth: number; startTime: number },
+  ): Promise<ListDiffResult> {
+    const { timeout, maxDepth, startTime } = context;
 
     try {
-      const html = await this.fetchHtml(pageUrl, timeout);
+      const html =
+        strategy === "static"
+          ? await this.fetchHtml(pageUrl, timeout)
+          : await this.fetchHtmlDynamic(pageUrl, timeout);
+
       const $ = cheerio.load(html);
 
       // Find the container using the provided selector
       const container = $(selector).first();
 
       if (container.length === 0) {
-        this.logger.warn(`Selector not found: ${selector} on ${pageUrl}`);
+        this.logger.warn(`Selector not found: ${selector} on ${pageUrl} (${strategy})`);
         return {
           success: false,
           urls: [],
           selectorHierarchy: "",
           error: `Selector not found: ${selector}`,
           durationMs: Date.now() - startTime,
+          detectedRenderType: strategy,
         };
       }
 
@@ -51,13 +116,14 @@ export class ListDiffService {
       const urls = this.extractUrls($, container, pageUrl);
 
       if (urls.length === 0) {
-        this.logger.warn(`No URLs found in container ${selector} on ${pageUrl}`);
+        this.logger.warn(`No URLs found in container ${selector} on ${pageUrl} (${strategy})`);
         return {
           success: false,
           urls: [],
           selectorHierarchy: "",
           error: "No URLs found in the selected container",
           durationMs: Date.now() - startTime,
+          detectedRenderType: strategy,
         };
       }
 
@@ -65,7 +131,7 @@ export class ListDiffService {
       const selectorHierarchy = this.generateSelectorHierarchy($, container, maxDepth);
 
       this.logger.debug(
-        `Extracted ${urls.length} URLs from ${pageUrl} in ${Date.now() - startTime}ms`,
+        `Extracted ${urls.length} URLs from ${pageUrl} (${strategy}) in ${Date.now() - startTime}ms`,
       );
 
       return {
@@ -73,16 +139,18 @@ export class ListDiffService {
         urls,
         selectorHierarchy,
         durationMs: Date.now() - startTime,
+        detectedRenderType: strategy,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`Failed to fetch ${pageUrl}: ${errorMsg}`);
+      this.logger.error(`Failed to fetch ${pageUrl} (${strategy}): ${errorMsg}`);
       return {
         success: false,
         urls: [],
         selectorHierarchy: "",
         error: errorMsg,
         durationMs: Date.now() - startTime,
+        detectedRenderType: strategy,
       };
     }
   }
@@ -90,18 +158,36 @@ export class ListDiffService {
   /**
    * Look up known URLs in the page to find the container
    * Used for URL reverse-lookup strategy
+   * Supports renderType option for static/dynamic pages
    */
   async lookupUrlsInPage(
     pageUrl: string,
     knownUrls: string[],
     options: ListDiffOptions = {},
   ): Promise<UrlLookupResult> {
-    const { timeout = DEFAULT_TIMEOUT } = options;
+    const { timeout = DEFAULT_TIMEOUT, renderType } = options;
 
-    this.logger.debug(`Looking up ${knownUrls.length} URLs in ${pageUrl}`);
+    this.logger.debug(
+      `Looking up ${knownUrls.length} URLs in ${pageUrl} (renderType: ${renderType ?? "unknown"})`,
+    );
 
     try {
-      const html = await this.fetchHtml(pageUrl, timeout);
+      // Use appropriate fetch strategy based on renderType
+      let html: string;
+      let usedStrategy: "static" | "dynamic" = "static";
+
+      if (renderType === "dynamic") {
+        html = await this.fetchHtmlDynamic(pageUrl, timeout);
+        usedStrategy = "dynamic";
+      } else if (renderType === "static") {
+        html = await this.fetchHtml(pageUrl, timeout);
+        usedStrategy = "static";
+      } else {
+        // Unknown: try static first
+        html = await this.fetchHtml(pageUrl, timeout);
+        usedStrategy = "static";
+      }
+
       const $ = cheerio.load(html);
 
       // Build a Map of normalized URLs to elements (O(m) - single pass)
@@ -133,7 +219,7 @@ export class ListDiffService {
 
       if (foundElements.length === 0) {
         this.logger.debug(`No matching URLs found in ${pageUrl}`);
-        return { found: false, foundUrls: [] };
+        return { found: false, foundUrls: [], detectedRenderType: usedStrategy };
       }
 
       // Find the Lowest Common Ancestor (LCA) of all found elements
@@ -161,6 +247,7 @@ export class ListDiffService {
         containerSelector,
         containerUrls,
         selectorHierarchy,
+        detectedRenderType: usedStrategy,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
@@ -386,7 +473,7 @@ export class ListDiffService {
   }
 
   /**
-   * Fetch raw HTML from a URL
+   * Fetch raw HTML from a URL (static)
    */
   private async fetchHtml(url: string, timeout: number): Promise<string> {
     const controller = new AbortController();
@@ -411,5 +498,23 @@ export class ListDiffService {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  /**
+   * Fetch rendered HTML from a URL using Playwright (dynamic)
+   */
+  private async fetchHtmlDynamic(url: string, timeout: number): Promise<string> {
+    if (!this.browserPoolService?.isReady()) {
+      throw new Error("Browser pool not available");
+    }
+
+    // Get a page from the browser pool and fetch the rendered HTML
+    const result = await this.browserPoolService.fetchHtml(url, { timeout });
+
+    if (!result.success) {
+      throw new Error(result.error ?? "Failed to fetch dynamic content");
+    }
+
+    return result.html;
   }
 }

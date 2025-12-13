@@ -87,8 +87,8 @@ export class SubscriptionsService {
 
   /**
    * Initialize a new list-diff subscription with a CSS selector
-   * 1. Fetch the page and extract URLs from the selector
-   * 2. Create subscription with initialSelector
+   * 1. Fetch the page and extract URLs from the selector (auto-detects static/dynamic)
+   * 2. Create subscription with initialSelector and renderType
    * 3. Save initial URL list to subscription_history
    */
   async initializeWatch(
@@ -97,7 +97,7 @@ export class SubscriptionsService {
   ): Promise<WatchSubscriptionResultDto> {
     this.logger.log(`Initializing watch for ${dto.url} with selector: ${dto.selector}`);
 
-    // 1. Fetch and extract URLs using the selector
+    // 1. Fetch and extract URLs using the selector (auto-detects renderType)
     const result = await this.listDiffService.fetch(dto.url, dto.selector);
 
     if (!result.success) {
@@ -109,9 +109,11 @@ export class SubscriptionsService {
       };
     }
 
-    this.logger.log(`Found ${result.urls.length} URLs in selector`);
+    this.logger.log(
+      `Found ${result.urls.length} URLs in selector (renderType: ${result.detectedRenderType})`,
+    );
 
-    // 2. Create subscription with initialSelector
+    // 2. Create subscription with initialSelector and detected renderType
     const [subscription] = await this.db
       .insert(subscriptions)
       .values({
@@ -121,6 +123,7 @@ export class SubscriptionsService {
         initialSelector: dto.selector,
         checkInterval: dto.checkInterval ?? 60,
         status: "active",
+        renderType: result.detectedRenderType ?? "unknown",
         lastCheckedAt: new Date().toISOString(),
       })
       .returning();
@@ -210,6 +213,7 @@ export class SubscriptionsService {
       const lookupResult = await this.listDiffService.lookupUrlsInPage(
         subscription.url,
         previousUrls,
+        { renderType: subscription.renderType ?? undefined },
       );
 
       if (
@@ -225,11 +229,18 @@ export class SubscriptionsService {
       }
     }
 
+    // Use known renderType for subsequent fetches
+    const fetchOptions = { renderType: subscription.renderType ?? undefined };
+
     // Strategy 2: Stable selectors fallback
     if (!containerFound && stableSelectors.length > 0) {
       this.logger.log("Trying stable selectors fallback...");
       for (const selector of stableSelectors) {
-        const fetchResult = await this.listDiffService.fetch(subscription.url, selector);
+        const fetchResult = await this.listDiffService.fetch(
+          subscription.url,
+          selector,
+          fetchOptions,
+        );
         if (fetchResult.success && fetchResult.urls.length > 0) {
           this.logger.log(`Found container via stable selector: ${selector}`);
           currentUrls = fetchResult.urls;
@@ -243,7 +254,11 @@ export class SubscriptionsService {
     // Strategy 3: Initial selector fallback
     if (!containerFound && initialSelector) {
       this.logger.log("Trying initial selector fallback...");
-      const fetchResult = await this.listDiffService.fetch(subscription.url, initialSelector);
+      const fetchResult = await this.listDiffService.fetch(
+        subscription.url,
+        initialSelector,
+        fetchOptions,
+      );
       if (fetchResult.success && fetchResult.urls.length > 0) {
         this.logger.log(`Found container via initial selector: ${initialSelector}`);
         currentUrls = fetchResult.urls;
@@ -272,9 +287,14 @@ export class SubscriptionsService {
 
     this.logger.log(`Found ${currentUrls.length} URLs, ${newUrls.length} new`);
 
-    // Create content_items for new URLs
+    // Create content_items for new URLs (inherit renderType from subscription)
     if (newUrls.length > 0) {
-      await this.createContentItemsForNewUrls(subscription.userId, subscriptionId, newUrls);
+      await this.createContentItemsForNewUrls(
+        subscription.userId,
+        subscriptionId,
+        newUrls,
+        subscription.renderType ?? undefined,
+      );
     }
 
     // Extract stable selectors using AI (periodically, not every time)
@@ -334,11 +354,13 @@ export class SubscriptionsService {
 
   /**
    * Create content_items for new URLs discovered by subscription
+   * Inherits renderType from subscription for smart fetch optimization
    */
   private async createContentItemsForNewUrls(
     userId: string,
     subscriptionId: string,
     urls: string[],
+    renderType?: "static" | "dynamic" | "unknown",
   ): Promise<void> {
     this.logger.log(`Creating ${urls.length} content items for subscription ${subscriptionId}`);
 
@@ -348,6 +370,8 @@ export class SubscriptionsService {
       source: "subscription" as const,
       subscriptionId,
       status: "pending" as const,
+      // Inherit renderType from subscription for smart fetch optimization
+      renderType: renderType ?? "unknown",
     }));
 
     await this.db.insert(contentItems).values(values);
@@ -364,6 +388,7 @@ export class SubscriptionsService {
       lastContentHash: row.lastContentHash,
       initialSelector: row.initialSelector,
       errorMessage: row.errorMessage,
+      renderType: row.renderType,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

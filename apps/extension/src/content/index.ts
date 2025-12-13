@@ -3,8 +3,10 @@
  * Runs in the context of web pages
  */
 
+import type { StartPickerMessage, WatchResultMessage } from "../lib/messages";
 import type { Settings, ShortcutSettings } from "../lib/settings-storage";
 import { isInputFocused, matchesShortcut } from "../lib/shortcut-utils";
+import { selectorPicker } from "./selector-picker";
 
 console.log("[ContentsHub] Content script loaded on:", window.location.href);
 
@@ -259,12 +261,10 @@ function handleKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
 
-    chrome.runtime
-      .sendMessage({ type: "QUICK_SUBSCRIBE" })
-      .then((response) => debugLog("QUICK_SUBSCRIBE response:", response))
-      .catch((error) => {
-        console.error("[ContentsHub:Shortcut] Failed to send QUICK_SUBSCRIBE message:", error);
-      });
+    // Start selector picker mode instead of direct subscription
+    if (!selectorPicker.isActive()) {
+      selectorPicker.start(window.location.href, document.title || window.location.href);
+    }
   }
 }
 
@@ -293,7 +293,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 document.addEventListener("keydown", handleKeyDown, true);
 
 // ============================================
-// Listen for feedback from Background
+// Listen for messages from Background/Popup
 // ============================================
 
 interface FeedbackMessage {
@@ -303,22 +303,46 @@ interface FeedbackMessage {
   message?: string;
 }
 
-chrome.runtime.onMessage.addListener((message: FeedbackMessage) => {
-  debugLog("Received feedback:", message);
+type ContentMessage = FeedbackMessage | StartPickerMessage | WatchResultMessage;
 
+chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResponse) => {
+  debugLog("Received message:", message);
+
+  // Handle Selector Picker messages
+  if (message.type === "START_SELECTOR_PICKER") {
+    const pickerMessage = message as StartPickerMessage;
+    if (!selectorPicker.isActive()) {
+      selectorPicker.start(pickerMessage.url, pickerMessage.title);
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "WATCH_RESULT") {
+    const resultMessage = message as WatchResultMessage;
+    selectorPicker.handleResult(resultMessage);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // Handle feedback messages (toast notifications)
   if (message.type === "SAVE_FEEDBACK") {
-    if (message.success) {
-      showToast("success", message.message || "Saved!", message.url);
+    const feedbackMsg = message as FeedbackMessage;
+    if (feedbackMsg.success) {
+      showToast("success", feedbackMsg.message || "Saved!", feedbackMsg.url);
     } else {
-      showToast("error", "Save failed", message.message);
+      showToast("error", "Save failed", feedbackMsg.message);
     }
   }
 
   if (message.type === "WATCH_FEEDBACK") {
-    if (message.success) {
-      showToast("success", message.message || "Watching!", message.url);
+    const feedbackMsg = message as FeedbackMessage;
+    if (feedbackMsg.success) {
+      showToast("success", feedbackMsg.message || "Watching!", feedbackMsg.url);
     } else {
-      showToast("error", "Watch failed", message.message);
+      showToast("error", "Watch failed", feedbackMsg.message);
     }
   }
+
+  return true;
 });
