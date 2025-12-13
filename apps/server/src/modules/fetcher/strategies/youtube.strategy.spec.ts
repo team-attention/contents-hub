@@ -1,9 +1,9 @@
 import { extractVideoId, isYouTubeUrl, youtubeFetch } from "./youtube.strategy";
 
-describe("YouTube Strategy", () => {
-  // 실제 네트워크 요청이므로 타임아웃 여유있게 설정
-  jest.setTimeout(120000);
+// CI 환경에서는 실제 네트워크 테스트 skip
+const isCI = process.env.CI === "true";
 
+describe("YouTube Strategy", () => {
   describe("extractVideoId", () => {
     it("should extract video ID from standard watch URL", () => {
       expect(extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
@@ -47,7 +47,12 @@ describe("YouTube Strategy", () => {
     });
   });
 
-  describe("youtubeFetch - transcript fetching", () => {
+  // 실제 네트워크 요청 테스트 - CI에서는 skip
+  const describeNetwork = isCI ? describe.skip : describe;
+
+  describeNetwork("youtubeFetch - transcript fetching", () => {
+    jest.setTimeout(120000);
+
     it("should fetch transcript from a video with captions", async () => {
       // Gavin Baker interview - has English auto-generated captions
       const url = "https://www.youtube.com/watch?v=tT1z66zSw-k";
@@ -90,7 +95,9 @@ describe("YouTube Strategy", () => {
     });
   });
 
-  describe("youtubeFetch - error handling", () => {
+  describeNetwork("youtubeFetch - error handling", () => {
+    jest.setTimeout(120000);
+
     it("should handle video with disabled transcripts", async () => {
       // Baby Shark - transcripts are disabled
       const url = "https://www.youtube.com/watch?v=XqZsoesa55w";

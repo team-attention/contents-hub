@@ -43,9 +43,11 @@ export function parseStableSelectorsResponse(response: string): StableSelectorsR
       return { selectors: selectors.filter((s) => typeof s === "string" && s.length > 0) };
     }
   } catch {
-    // Fall back to line-by-line parsing
-    const lines = response.split("\n").filter((line) => line.trim().startsWith('"'));
-    const selectors = lines.map((line) => line.replace(/[",]/g, "").trim());
+    // Fall back to line-by-line parsing - extract content within quotes
+    const lines = response.split("\n");
+    const selectors = lines
+      .map((line) => line.trim().match(/"([^"]*)"/)?.[1])
+      .filter((s): s is string => !!s && s.length > 0);
     return { selectors };
   }
 

@@ -170,9 +170,9 @@ describe("Digests (e2e)", () => {
         totalOutputTokens: 25,
       });
 
-      // Create digest for different user
+      // Create digest for different user (use different UUID that won't match MOCK_USER_ID)
       await db.insert(schema.digests).values({
-        userId: "00000000-0000-0000-0000-000000000001",
+        userId: "00000000-0000-0000-0000-000000000099",
         title: "Other User Digest",
         content: "Other content",
         itemCount: 1,
@@ -190,11 +190,11 @@ describe("Digests (e2e)", () => {
     });
 
     it("should not return other user's digest by id", async () => {
-      // Create digest for different user
+      // Create digest for different user (use different UUID that won't match MOCK_USER_ID)
       const [otherDigest] = await db
         .insert(schema.digests)
         .values({
-          userId: "00000000-0000-0000-0000-000000000001",
+          userId: "00000000-0000-0000-0000-000000000099",
           title: "Other User Digest",
           content: "Other content",
           itemCount: 1,

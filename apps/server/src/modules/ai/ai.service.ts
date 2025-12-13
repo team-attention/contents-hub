@@ -46,7 +46,10 @@ export class AiService {
       // Basic validation - should look like a CSS selector
       if (
         selector &&
-        (selector.includes(".") || selector.includes("#") || /^[a-z]+$/i.test(selector))
+        (selector.includes(".") ||
+          selector.includes("#") ||
+          selector.includes("[") ||
+          /^[a-z]+$/i.test(selector))
       ) {
         return selector;
       }

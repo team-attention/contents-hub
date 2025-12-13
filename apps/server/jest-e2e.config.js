@@ -4,7 +4,7 @@ module.exports = {
   moduleFileExtensions: ["js", "json", "ts"],
   rootDir: ".",
   testEnvironment: "node",
-  testRegex: ".(e2e-spec|e2e-script).ts$",
+  testRegex: ".e2e-spec.ts$",
   testTimeout: useMocks ? 30000 : 120000,
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
