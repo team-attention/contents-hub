@@ -36,6 +36,8 @@ export class OrchestratorService {
     const fetchRequests = pendingItems.map((item) => ({
       contentItemId: item.id,
       url: item.url,
+      // Pass cached renderType for smart fetch optimization
+      renderType: item.renderType ?? undefined,
     }));
 
     return this.fetcherService.fetchMany(fetchRequests);

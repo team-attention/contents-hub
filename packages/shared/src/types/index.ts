@@ -10,8 +10,17 @@
  * Subscription status
  * - active: subscription is active and being watched
  * - paused: user paused the subscription
+ * - broken: URL/Selector not found, auto-paused with error
  */
-export type SubscriptionStatus = "active" | "paused";
+export type SubscriptionStatus = "active" | "paused" | "broken";
+
+/**
+ * Render type - detected page rendering method
+ * - static: page content is server-rendered (SSR/SSG), httpFetch works
+ * - dynamic: page requires JavaScript rendering (CSR/SPA), needs Playwright
+ * - unknown: not yet determined
+ */
+export type RenderType = "static" | "dynamic" | "unknown";
 
 /**
  * Content check result
@@ -122,6 +131,8 @@ export type FetchErrorType =
 export interface FetchRequest {
   contentItemId: string;
   url: string;
+  /** Cached render type from previous fetch or subscription */
+  renderType?: RenderType;
 }
 
 /**
@@ -142,6 +153,8 @@ export interface FetchResult {
   statusCode?: number;
   // Metrics
   durationMs: number;
+  /** Detected render type (static/dynamic) from smart fetch */
+  detectedRenderType?: RenderType;
 }
 
 // ============================================

@@ -22,7 +22,6 @@ function Popup() {
     isLoading: subscriptionsLoading,
     isOperating: isWatchOperating,
     error: subscriptionError,
-    subscribe,
     unsubscribe,
     isSubscribed,
     getSubscriptionForUrl,
@@ -94,11 +93,22 @@ function Popup() {
 
   const handleWatch = async () => {
     if (!currentUrl) return;
+
     try {
-      await subscribe(currentUrl, currentTitle || currentUrl);
-      showToast("Now watching", "success");
-    } catch {
-      showToast("Failed to watch", "error");
+      // Start selector picker mode in the current tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        await chrome.tabs.sendMessage(tab.id, {
+          type: "START_SELECTOR_PICKER",
+          url: currentUrl,
+          title: currentTitle || currentUrl,
+        });
+        // Close popup so user can interact with the page
+        window.close();
+      }
+    } catch (error) {
+      console.error("Failed to start selector picker:", error);
+      showToast("Failed to start selector picker", "error");
     }
   };
 

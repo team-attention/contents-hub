@@ -1,0 +1,2 @@
+ALTER TABLE "contents_hub"."content_items" ADD COLUMN "render_type" text DEFAULT 'unknown';--> statement-breakpoint
+ALTER TABLE "contents_hub"."subscriptions" ADD COLUMN "render_type" text DEFAULT 'unknown';

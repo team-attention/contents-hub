@@ -32,6 +32,14 @@ export type ContentItemSource = "read_later" | "subscription";
 export type SubscriptionStatus = "active" | "paused" | "broken";
 
 /**
+ * Render type enum - detected page rendering method
+ * - static: page content is server-rendered (SSR/SSG), httpFetch works
+ * - dynamic: page requires JavaScript rendering (CSR/SPA), needs Playwright
+ * - unknown: not yet determined
+ */
+export type RenderType = "static" | "dynamic" | "unknown";
+
+/**
  * Content items table - stores URLs to be fetched and digested
  * Can be created from Read Later (extension) or subscription diff detection
  */
@@ -52,6 +60,8 @@ export const contentItems = contentsHubSchema.table("content_items", {
   digestId: uuid("digest_id").references(() => digests.id), // linked digest
   // Metadata
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  // Render type detection (for smart fetch optimization)
+  renderType: text("render_type").$type<RenderType>().default("unknown"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .notNull()
@@ -124,6 +134,8 @@ export const subscriptions = contentsHubSchema.table("subscriptions", {
   lastContentHash: text("last_content_hash"),
   initialSelector: text("initial_selector"), // user-selected selector from picker
   errorMessage: text("error_message"), // error details when status="broken"
+  // Render type detection (for smart fetch optimization)
+  renderType: text("render_type").$type<RenderType>().default("unknown"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .notNull()

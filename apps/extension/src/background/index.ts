@@ -9,7 +9,9 @@ import {
   findByUrlSubscription,
   updateContentItem,
 } from "../lib/api/__generated__/api";
+import { previewSelector, watchSubscription } from "../lib/api/manual";
 import { handleOAuthCallback } from "../lib/auth";
+import type { SubmitSelectorMessage, WatchResultMessage } from "../lib/messages";
 import { supabase } from "../lib/supabase";
 
 console.log("Contents Hub background service worker started");
@@ -113,6 +115,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "QUICK_SAVE") {
     handleQuickSave(sender.tab?.id).then((result) => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
+  // Selector Picker: Preview selector to get URL count
+  if (message.type === "PREVIEW_SELECTOR") {
+    handlePreviewSelector(message).then((result) => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
+  // Selector Picker: Submit selector to create subscription
+  if (message.type === "SUBMIT_SELECTOR") {
+    handleSubmitSelector(message as SubmitSelectorMessage, sender.tab?.id).then((result) => {
       sendResponse(result);
     });
     return true;
@@ -233,4 +251,92 @@ function sendFeedback(
     .catch((error) => {
       console.error("Failed to send feedback to tab:", tabId, error);
     });
+}
+
+// ============================================
+// Selector Picker Handlers
+// ============================================
+
+async function handlePreviewSelector(message: {
+  url: string;
+  selector: string;
+}): Promise<WatchResultMessage> {
+  console.log("handlePreviewSelector:", message);
+
+  try {
+    const result = await previewSelector({
+      url: message.url,
+      selector: message.selector,
+    });
+
+    return {
+      type: "WATCH_RESULT",
+      success: result.success,
+      urlCount: result.urlCount,
+      error: result.error,
+    };
+  } catch (error) {
+    console.error("Preview selector error:", error);
+    // Return success with 0 URLs so user can still proceed
+    return {
+      type: "WATCH_RESULT",
+      success: true,
+      urlCount: 0,
+    };
+  }
+}
+
+async function handleSubmitSelector(
+  message: SubmitSelectorMessage,
+  tabId: number | undefined,
+): Promise<WatchResultMessage> {
+  console.log("handleSubmitSelector:", message);
+
+  try {
+    // Check if already subscribed to this URL
+    try {
+      const existing = await findByUrlSubscription({ url: message.url });
+      if (existing.data) {
+        return {
+          type: "WATCH_RESULT",
+          success: false,
+          urlCount: 0,
+          error: "Already watching this page",
+        };
+      }
+    } catch {
+      // Not found, proceed with creation
+    }
+
+    // Create subscription with selector
+    const result = await watchSubscription({
+      url: message.url,
+      name: message.name,
+      selector: message.selector,
+      checkInterval: 60,
+    });
+
+    if (result.success) {
+      // Send success feedback to tab for toast notification
+      sendFeedback(tabId, "WATCH_FEEDBACK", true, message.url, `Watching ${result.urlCount} URLs`);
+    }
+
+    return {
+      type: "WATCH_RESULT",
+      success: result.success,
+      subscriptionId: result.subscriptionId,
+      urlCount: result.urlCount,
+      error: result.error,
+    };
+  } catch (error) {
+    console.error("Submit selector error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    return {
+      type: "WATCH_RESULT",
+      success: false,
+      urlCount: 0,
+      error: errorMessage,
+    };
+  }
 }

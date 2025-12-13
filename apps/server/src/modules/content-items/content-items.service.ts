@@ -171,6 +171,7 @@ export class ContentItemsService {
       summary: row.summary,
       digestId: row.digestId,
       metadata: row.metadata,
+      renderType: row.renderType,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
